@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from "react";
 import {
   RefreshCw,
   Laptop,
@@ -10,15 +10,22 @@ import {
   ZoomOut,
   Maximize2,
   Wifi,
-  Circle
-} from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import RealtimeDataDialog from '@/components/topology/RealtimeDataDialog';
+  Circle,
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import RealtimeDataDialog from "@/components/topology/RealtimeDataDialog";
+import { useTopologyData } from "@/hooks/useTopologyData";
 
 interface Device {
   id: string;
@@ -26,11 +33,15 @@ interface Device {
   ip: string;
   mac: string;
   vendor: string;
-  type: 'laptop' | 'mobile' | 'printer' | 'iot' | 'network';
-  status: 'active' | 'idle' | 'offline';
+  type: "laptop" | "mobile" | "printer" | "iot" | "network";
+  status: "active" | "idle" | "offline";
   firstSeen: string;
   lastSeen: string;
-  activityLevel: 'low' | 'medium' | 'high';
+  activityLevel: "low" | "medium" | "high";
+  data_sent: number;
+  data_received: number;
+  packet_count: number;
+  online: boolean;
   x?: number;
   y?: number;
 }
@@ -38,182 +49,194 @@ interface Device {
 interface NetworkSwitch {
   id: string;
   name: string;
-  status: 'healthy' | 'warning' | 'error';
+  status: "healthy" | "warning" | "error";
   x: number;
   y: number;
 }
 
 const mockSwitch: NetworkSwitch = {
-  id: 'switch-1',
-  name: 'Core Switch',
-  status: 'healthy',
+  id: "switch-1",
+  name: "Core Switch",
+  status: "healthy",
   x: 400,
-  y: 300
+  y: 300,
 };
 
 const mockDevices: Device[] = [
   {
-    id: 'dev-1',
-    name: 'MacBook-Pro-Admin',
-    ip: '192.168.1.15',
-    mac: '00:1B:63:84:45:E6',
-    vendor: 'Apple',
-    type: 'laptop',
-    status: 'active',
-    firstSeen: '2025-01-15 08:30:00',
-    lastSeen: '2 minutes ago',
-    activityLevel: 'high'
+    id: "dev-1",
+    name: "MacBook-Pro-Admin",
+    ip: "192.168.1.15",
+    mac: "00:1B:63:84:45:E6",
+    vendor: "Apple",
+    type: "laptop",
+    status: "active",
+    firstSeen: "2025-01-15 08:30:00",
+    lastSeen: "2 minutes ago",
+    activityLevel: "high",
   },
   {
-    id: 'dev-2',
-    name: 'Galaxy-S24',
-    ip: '192.168.1.23',
-    mac: '5C:F9:DD:5A:12:3F',
-    vendor: 'Samsung',
-    type: 'mobile',
-    status: 'active',
-    firstSeen: '2025-01-20 14:15:00',
-    lastSeen: '5 minutes ago',
-    activityLevel: 'medium'
+    id: "dev-2",
+    name: "Galaxy-S24",
+    ip: "192.168.1.23",
+    mac: "5C:F9:DD:5A:12:3F",
+    vendor: "Samsung",
+    type: "mobile",
+    status: "active",
+    firstSeen: "2025-01-20 14:15:00",
+    lastSeen: "5 minutes ago",
+    activityLevel: "medium",
   },
   {
-    id: 'dev-3',
-    name: 'LaserJet-Pro',
-    ip: '192.168.1.45',
-    mac: '00:1E:C9:3A:78:B2',
-    vendor: 'HP',
-    type: 'printer',
-    status: 'idle',
-    firstSeen: '2025-01-10 09:00:00',
-    lastSeen: '1 hour ago',
-    activityLevel: 'low'
+    id: "dev-3",
+    name: "LaserJet-Pro",
+    ip: "192.168.1.45",
+    mac: "00:1E:C9:3A:78:B2",
+    vendor: "HP",
+    type: "printer",
+    status: "idle",
+    firstSeen: "2025-01-10 09:00:00",
+    lastSeen: "1 hour ago",
+    activityLevel: "low",
   },
   {
-    id: 'dev-4',
-    name: 'RaspberryPi-IoT',
-    ip: '192.168.1.67',
-    mac: 'B8:27:EB:4C:91:2D',
-    vendor: 'Raspberry Pi',
-    type: 'iot',
-    status: 'active',
-    firstSeen: '2025-01-12 11:20:00',
-    lastSeen: '10 seconds ago',
-    activityLevel: 'high'
+    id: "dev-4",
+    name: "RaspberryPi-IoT",
+    ip: "192.168.1.67",
+    mac: "B8:27:EB:4C:91:2D",
+    vendor: "Raspberry Pi",
+    type: "iot",
+    status: "active",
+    firstSeen: "2025-01-12 11:20:00",
+    lastSeen: "10 seconds ago",
+    activityLevel: "high",
   },
   {
-    id: 'dev-5',
-    name: 'iPhone-14',
-    ip: '192.168.1.89',
-    mac: '00:1C:B3:09:85:15',
-    vendor: 'Apple',
-    type: 'mobile',
-    status: 'active',
-    firstSeen: '2025-01-18 10:45:00',
-    lastSeen: '3 minutes ago',
-    activityLevel: 'medium'
+    id: "dev-5",
+    name: "iPhone-14",
+    ip: "192.168.1.89",
+    mac: "00:1C:B3:09:85:15",
+    vendor: "Apple",
+    type: "mobile",
+    status: "active",
+    firstSeen: "2025-01-18 10:45:00",
+    lastSeen: "3 minutes ago",
+    activityLevel: "medium",
   },
   {
-    id: 'dev-6',
-    name: 'ThinkPad-Lab-02',
-    ip: '192.168.1.102',
-    mac: '54:EE:75:2A:67:D9',
-    vendor: 'Lenovo',
-    type: 'laptop',
-    status: 'idle',
-    firstSeen: '2025-01-08 07:30:00',
-    lastSeen: '2 hours ago',
-    activityLevel: 'low'
+    id: "dev-6",
+    name: "ThinkPad-Lab-02",
+    ip: "192.168.1.102",
+    mac: "54:EE:75:2A:67:D9",
+    vendor: "Lenovo",
+    type: "laptop",
+    status: "idle",
+    firstSeen: "2025-01-08 07:30:00",
+    lastSeen: "2 hours ago",
+    activityLevel: "low",
   },
   {
-    id: 'dev-7',
-    name: 'Canon-Printer',
-    ip: '192.168.1.120',
-    mac: '00:1E:8C:7A:23:F1',
-    vendor: 'Canon',
-    type: 'printer',
-    status: 'offline',
-    firstSeen: '2025-01-05 13:00:00',
-    lastSeen: '1 day ago',
-    activityLevel: 'low'
+    id: "dev-7",
+    name: "Canon-Printer",
+    ip: "192.168.1.120",
+    mac: "00:1E:8C:7A:23:F1",
+    vendor: "Canon",
+    type: "printer",
+    status: "offline",
+    firstSeen: "2025-01-05 13:00:00",
+    lastSeen: "1 day ago",
+    activityLevel: "low",
   },
   {
-    id: 'dev-8',
-    name: 'Dell-Workstation',
-    ip: '192.168.1.135',
-    mac: '00:14:22:3B:56:C8',
-    vendor: 'Dell',
-    type: 'laptop',
-    status: 'active',
-    firstSeen: '2025-01-16 09:15:00',
-    lastSeen: '1 minute ago',
-    activityLevel: 'high'
+    id: "dev-8",
+    name: "Dell-Workstation",
+    ip: "192.168.1.135",
+    mac: "00:14:22:3B:56:C8",
+    vendor: "Dell",
+    type: "laptop",
+    status: "active",
+    firstSeen: "2025-01-16 09:15:00",
+    lastSeen: "1 minute ago",
+    activityLevel: "high",
   },
   {
-    id: 'dev-9',
-    name: 'iPad-Pro',
-    ip: '192.168.1.156',
-    mac: '00:3E:E1:C8:53:9A',
-    vendor: 'Apple',
-    type: 'mobile',
-    status: 'idle',
-    firstSeen: '2025-01-19 16:20:00',
-    lastSeen: '45 minutes ago',
-    activityLevel: 'low'
+    id: "dev-9",
+    name: "iPad-Pro",
+    ip: "192.168.1.156",
+    mac: "00:3E:E1:C8:53:9A",
+    vendor: "Apple",
+    type: "mobile",
+    status: "idle",
+    firstSeen: "2025-01-19 16:20:00",
+    lastSeen: "45 minutes ago",
+    activityLevel: "low",
   },
   {
-    id: 'dev-10',
-    name: 'Smart-Thermostat',
-    ip: '192.168.1.178',
-    mac: 'A4:CF:12:8E:42:1D',
-    vendor: 'Nest',
-    type: 'iot',
-    status: 'active',
-    firstSeen: '2025-01-01 00:00:00',
-    lastSeen: '30 seconds ago',
-    activityLevel: 'medium'
-  },{
-    id: 'dev-11',
-    name: 'Office-PC-01',
-    ip: '192.168.1.200',
-    mac: '00:0C:29:3E:5B:7A',
-    vendor: 'VMware',
-    type: 'laptop',
-    status: 'active',
-    firstSeen: '2025-01-03 12:00:00',
-    lastSeen: '2 days ago',
-    activityLevel: 'medium'
-  }
+    id: "dev-10",
+    name: "Smart-Thermostat",
+    ip: "192.168.1.178",
+    mac: "A4:CF:12:8E:42:1D",
+    vendor: "Nest",
+    type: "iot",
+    status: "active",
+    firstSeen: "2025-01-01 00:00:00",
+    lastSeen: "30 seconds ago",
+    activityLevel: "medium",
+  },
+  {
+    id: "dev-11",
+    name: "Office-PC-01",
+    ip: "192.168.1.200",
+    mac: "00:0C:29:3E:5B:7A",
+    vendor: "VMware",
+    type: "laptop",
+    status: "active",
+    firstSeen: "2025-01-03 12:00:00",
+    lastSeen: "2 days ago",
+    activityLevel: "medium",
+  },
 ];
 
-const calculateDevicePositions = (devices: Device[], centerX: number, centerY: number, radius: number): Device[] => {
+const calculateDevicePositions = (
+  devices: Device[],
+  centerX: number,
+  centerY: number,
+  radius: number,
+): Device[] => {
   return devices.map((device, index) => {
     const angle = (index / devices.length) * 2 * Math.PI - Math.PI / 2;
     return {
       ...device,
       x: centerX + radius * Math.cos(angle),
-      y: centerY + radius * Math.sin(angle)
+      y: centerY + radius * Math.sin(angle),
     };
   });
 };
 
-const DeviceIcon: React.FC<{ type: Device['type']; className?: string }> = ({ type, className = "h-6 w-6" }) => {
+const DeviceIcon: React.FC<{ type: Device["type"]; className?: string }> = ({
+  type,
+  className = "h-6 w-6",
+}) => {
   const icons = {
     laptop: <Laptop className={className} />,
     mobile: <Smartphone className={className} />,
     printer: <Printer className={className} />,
     iot: <Cpu className={className} />,
-    network: <Server className={className} />
+    network: <Server className={className} />,
   };
   return icons[type] || <Server className={className} />;
 };
 
-
-const getStatusColor = (status: Device['status']) => {
+const getStatusColor = (status: Device["status"]) => {
   switch (status) {
-    case 'active': return '#22c55e';
-    case 'idle': return '#eab308';
-    case 'offline': return '#94a3b8';
-    default: return '#94a3b8';
+    case "active":
+      return "#22c55e";
+    case "idle":
+      return "#eab308";
+    case "offline":
+      return "#94a3b8";
+    default:
+      return "#94a3b8";
   }
 };
 
@@ -224,7 +247,7 @@ const SwitchNode: React.FC<{ switch_: NetworkSwitch }> = ({ switch_ }) => (
       cy={switch_.y}
       r={40}
       fill="#0f172a"
-      stroke={switch_.status === 'healthy' ? '#22c55e' : '#eab308'}
+      stroke={switch_.status === "healthy" ? "#22c55e" : "#eab308"}
       strokeWidth={3}
     />
     <foreignObject x={switch_.x - 20} y={switch_.y - 20} width={40} height={40}>
@@ -243,7 +266,7 @@ const SwitchNode: React.FC<{ switch_: NetworkSwitch }> = ({ switch_ }) => (
     <foreignObject x={switch_.x - 30} y={switch_.y + 70} width={60} height={20}>
       <div className="flex justify-center">
         <Badge className="bg-green-100 text-green-800 text-xs">
-          {switch_.status}
+          {/* {switch_.status} */}
         </Badge>
       </div>
     </foreignObject>
@@ -266,16 +289,11 @@ const DeviceNode: React.FC<{
         cy={device.y}
         r={isSelected ? 35 : 30}
         fill="white"
-        stroke={isSelected ? '#3b82f6' : statusColor}
+        stroke={isSelected ? "#3b82f6" : statusColor}
         strokeWidth={isSelected ? 3 : 2}
         className="transition-all"
       />
-      <circle
-        cx={device.x + 18}
-        cy={device.y - 18}
-        r={6}
-        fill={statusColor}
-      />
+      <circle cx={device.x + 18} cy={device.y - 18} r={6} fill={statusColor} />
       <foreignObject x={device.x - 15} y={device.y - 15} width={30} height={30}>
         <div className="flex items-center justify-center h-full">
           <DeviceIcon type={device.type} className="h-5 w-5 text-slate-700" />
@@ -287,7 +305,9 @@ const DeviceNode: React.FC<{
         textAnchor="middle"
         className="text-xs font-medium fill-slate-700"
       >
-        {device.name.length > 15 ? device.name.substring(0, 15) + '...' : device.name}
+        {device.name.length > 15
+          ? device.name.substring(0, 15) + "..."
+          : device.name}
       </text>
       <text
         x={device.x}
@@ -306,10 +326,11 @@ const ConnectionLine: React.FC<{
   y1: number;
   x2: number;
   y2: number;
-  activityLevel: Device['activityLevel'];
+  activityLevel: Device["activityLevel"];
 }> = ({ x1, y1, x2, y2, activityLevel }) => {
-  const strokeWidth = activityLevel === 'high' ? 3 : activityLevel === 'medium' ? 2 : 1;
-  const opacity = activityLevel === 'high' ? 0.6 : activityLevel === 'medium' ? 0.4 : 0.2;
+  const strokeWidth =
+    activityLevel === "high" ? 5 : activityLevel === "medium" ? 4 : 3;
+  const opacity = 1.0; // activityLevel === 'high' ? 0.8 : activityLevel === 'medium' ? 0.5 : 0.3;
 
   return (
     <line
@@ -317,15 +338,24 @@ const ConnectionLine: React.FC<{
       y1={y1}
       x2={x2}
       y2={y2}
-      stroke="#cbd5e1"
+      stroke={
+        activityLevel === "high"
+          ? "#cd0000d5"
+          : activityLevel === "medium"
+            ? "#00cd1fae"
+            : "#232ec6d2"
+      }
       strokeWidth={strokeWidth}
       opacity={opacity}
-      strokeDasharray={activityLevel === 'low' ? '5,5' : 'none'}
+      strokeDasharray={"none"}
     />
   );
 };
 
-const DeviceDetailsPanel: React.FC<{ device: Device | null; onClose: () => void }> = ({ device, onClose }) => {
+const DeviceDetailsPanel: React.FC<{
+  device: Device | null;
+  onClose: () => void;
+}> = ({ device, onClose }) => {
   if (!device) return null;
 
   return (
@@ -336,7 +366,9 @@ const DeviceDetailsPanel: React.FC<{ device: Device | null; onClose: () => void 
             <DeviceIcon type={device.type} className="h-5 w-5 text-slate-700" />
             <CardTitle className="text-lg">{device.name}</CardTitle>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>×</Button>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            ×
+          </Button>
         </div>
         <CardDescription>Device Information</CardDescription>
       </CardHeader>
@@ -345,13 +377,13 @@ const DeviceDetailsPanel: React.FC<{ device: Device | null; onClose: () => void 
           <div>
             <Label className="text-xs text-slate-500">Status</Label>
             <div className="mt-1">
-              <Badge 
+              <Badge
                 className={
-                  device.status === 'active' 
-                    ? 'bg-green-100 text-green-800' 
-                    : device.status === 'idle'
-                    ? 'bg-yellow-100 text-yellow-800'
-                    : 'bg-slate-100 text-slate-600'
+                  device.status === "active"
+                    ? "bg-green-100 text-green-800"
+                    : device.status === "idle"
+                      ? "bg-yellow-100 text-yellow-800"
+                      : "bg-slate-100 text-slate-600"
                 }
               >
                 {device.status}
@@ -368,7 +400,9 @@ const DeviceDetailsPanel: React.FC<{ device: Device | null; onClose: () => void 
 
           <div>
             <Label className="text-xs text-slate-500">MAC Address</Label>
-            <p className="text-sm font-mono text-slate-900 mt-1">{device.mac}</p>
+            <p className="text-sm font-mono text-slate-900 mt-1">
+              {device.mac}
+            </p>
           </div>
 
           <div>
@@ -378,7 +412,9 @@ const DeviceDetailsPanel: React.FC<{ device: Device | null; onClose: () => void 
 
           <div>
             <Label className="text-xs text-slate-500">Device Type</Label>
-            <p className="text-sm text-slate-900 mt-1 capitalize">{device.type}</p>
+            <p className="text-sm text-slate-900 mt-1 capitalize">
+              {device.type}
+            </p>
           </div>
 
           <Separator />
@@ -386,20 +422,50 @@ const DeviceDetailsPanel: React.FC<{ device: Device | null; onClose: () => void 
           <div>
             <Label className="text-xs text-slate-500">Activity Level</Label>
             <div className="mt-1">
-              <Badge 
+              <Badge
                 variant="outline"
                 className={
-                  device.activityLevel === 'high'
-                    ? 'border-green-300 text-green-700'
-                    : device.activityLevel === 'medium'
-                    ? 'border-blue-300 text-blue-700'
-                    : 'border-slate-300 text-slate-700'
+                  device.activityLevel === "high"
+                    ? "border-green-300 text-red-700"
+                    : device.activityLevel === "medium"
+                      ? "border-blue-300 text-green-700"
+                      : "border-slate-300 text-blue-700"
                 }
               >
                 {device.activityLevel}
               </Badge>
             </div>
           </div>
+
+          <div>
+            <Label className="text-xs text-slate-500">Data Sent</Label>
+            <p className="text-sm font-mono text-slate-900 mt-1">
+              {device.data_sent} bytes
+            </p>
+          </div>
+
+          <div>
+            <Label className="text-xs text-slate-500">Data Received</Label>
+            <p className="text-sm font-mono text-slate-900 mt-1">
+              {device.data_received} bytes
+            </p>
+          </div>
+
+          <div>
+            <Label className="text-xs text-slate-500">Packet Count</Label>
+            <p className="text-sm font-mono text-slate-900 mt-1">
+              {device.packet_count}
+            </p>
+          </div>
+
+          <div>
+            <Label className="text-xs text-slate-500">Online</Label>
+            <p className="text-sm text-slate-900 mt-1">
+              {device.online ? "Connected" : "Disconnected"}
+            </p>
+          </div>
+
+          <Separator />
 
           <div>
             <Label className="text-xs text-slate-500">First Seen</Label>
@@ -443,7 +509,9 @@ const TopologyLegend: React.FC = () => (
       <Separator />
 
       <div>
-        <Label className="text-xs text-slate-500 mb-2 block">Device Types</Label>
+        <Label className="text-xs text-slate-500 mb-2 block">
+          Device Types
+        </Label>
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Laptop className="h-4 w-4 text-slate-600" />
@@ -467,18 +535,20 @@ const TopologyLegend: React.FC = () => (
       <Separator />
 
       <div>
-        <Label className="text-xs text-slate-500 mb-2 block">Connection Activity</Label>
+        <Label className="text-xs text-slate-500 mb-2 block">
+          Connection Activity
+        </Label>
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <div className="h-0.5 w-8 bg-slate-300 opacity-60"></div>
+            <div className="h-0.5 w-8 bg-red-700 "></div>
             <span className="text-xs text-slate-700">High</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-0.5 w-8 bg-slate-300 opacity-40"></div>
+            <div className="h-0.5 w-8 bg-green-700 "></div>
             <span className="text-xs text-slate-700">Medium</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-0.5 w-8 bg-slate-300 opacity-20" style={{strokeDasharray: '3,3'}}></div>
+            <div className="h-0.5 w-8 bg-blue-700"></div>
             <span className="text-xs text-slate-700">Low</span>
           </div>
         </div>
@@ -496,8 +566,8 @@ const TopologyCanvas: React.FC<{
   const canvasRef = useRef<SVGSVGElement>(null);
   const [zoom, setZoom] = useState(1);
 
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.2, 2));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.2, 0.5));
+  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.2, 2));
+  const handleZoomOut = () => setZoom((prev) => Math.max(prev - 0.2, 0.5));
   const handleReset = () => setZoom(1);
 
   return (
@@ -525,24 +595,26 @@ const TopologyCanvas: React.FC<{
       >
         <g transform={`scale(${zoom})`} transform-origin="400 300">
           {/* Draw connection lines first (behind nodes) */}
-          {devices.map(device => (
-            device.x && device.y && (
-              <ConnectionLine
-                key={`line-${device.id}`}
-                x1={switch_.x}
-                y1={switch_.y}
-                x2={device.x}
-                y2={device.y}
-                activityLevel={device.activityLevel}
-              />
-            )
-          ))}
+          {devices.map(
+            (device) =>
+              device.x &&
+              device.y && (
+                <ConnectionLine
+                  key={`line-${device.id}`}
+                  x1={switch_.x}
+                  y1={switch_.y}
+                  x2={device.x}
+                  y2={device.y}
+                  activityLevel={device.activityLevel}
+                />
+              ),
+          )}
 
           {/* Draw switch node */}
           <SwitchNode switch_={switch_} />
 
           {/* Draw device nodes */}
-          {devices.map(device => (
+          {devices.map((device) => (
             <DeviceNode
               key={device.id}
               device={device}
@@ -559,27 +631,17 @@ const TopologyCanvas: React.FC<{
 const NetworkTopologyPage: React.FC = () => {
   const [showInactive, setShowInactive] = useState(true);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
-  const [devices, setDevices] = useState<Device[]>([]);
   const [isRealtimeDialogOpen, setIsRealtimeDialogOpen] = useState(true);
+  const { devices: realtimeDevices } = useTopologyData(showInactive);
 
-  useEffect(() => {
-    const filteredDevices = showInactive 
-      ? mockDevices 
-      : mockDevices.filter(d => d.status !== 'offline');
-    
-    const positionedDevices = calculateDevicePositions(filteredDevices, 400, 300, 200);
-    setDevices(positionedDevices);
-  }, [showInactive]);
+  const positionedDevices = calculateDevicePositions(
+  realtimeDevices,
+  400,
+  300,
+  200
+);
 
-  const handleRefresh = () => {
-    const positionedDevices = calculateDevicePositions(
-      showInactive ? mockDevices : mockDevices.filter(d => d.status !== 'offline'),
-      400,
-      300,
-      200
-    );
-    setDevices(positionedDevices);
-  };
+  console.log("Data received for topology:", positionedDevices);
 
   const handleDeviceClick = (device: Device) => {
     setSelectedDevice(device);
@@ -590,10 +652,14 @@ const NetworkTopologyPage: React.FC = () => {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Network Topology</h1>
-          <p className="text-sm text-slate-500 mt-1">Logical view of connected devices</p>
+          <h1 className="text-2xl font-semibold text-slate-900">
+            Network Topology
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Logical view of connected devices
+          </p>
         </div>
-        
+
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Switch
@@ -605,8 +671,8 @@ const NetworkTopologyPage: React.FC = () => {
               Show inactive devices
             </Label>
           </div>
-          
-          <Button onClick={handleRefresh} variant="outline" size="sm">
+
+          <Button variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
@@ -625,7 +691,7 @@ const NetworkTopologyPage: React.FC = () => {
         {/* Center: Topology Canvas */}
         <div className="flex-1">
           <TopologyCanvas
-            devices={devices}
+            devices={positionedDevices}
             switch_={mockSwitch}
             onDeviceClick={handleDeviceClick}
             selectedDeviceId={selectedDevice?.id || null}
@@ -641,16 +707,13 @@ const NetworkTopologyPage: React.FC = () => {
             />
           </div>
         )}
-        
 
-        
         <RealtimeDataDialog
-            isOpen={isRealtimeDialogOpen}
-            onClose={() => setIsRealtimeDialogOpen(false)}
-            deviceName="Device Name"
-            deviceIP="192.168.1.100"
+          isOpen={isRealtimeDialogOpen && false}
+          onClose={() => setIsRealtimeDialogOpen(false)}
+          deviceName="Device Name"
+          deviceIP="192.168.1.100"
         />
-
       </div>
     </div>
   );
