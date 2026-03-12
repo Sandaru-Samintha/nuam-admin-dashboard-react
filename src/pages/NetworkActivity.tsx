@@ -1,26 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import {
-  RefreshCw,
-  Activity,
-  Wifi,
-  Radio,
-  TrendingUp,
-  TrendingDown,
-  Clock,
-  Laptop,
-  Smartphone,
-  Printer,
-  Cpu,
-  Server,
-  AlertCircle,
-  CheckCircle2,
-  ArrowUpDown
-} from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { useWebSocket } from '@/contexts/WebSocketContext';
+import type { NetworkInsight } from '@/hooks/useNetworkActivityData';
+import {
+  Activity,
+  AlertCircle,
+  ArrowUpDown,
+  CheckCircle2,
+  Clock,
+  Cpu,
+  Laptop,
+  Printer,
+  Radio,
+  RefreshCw,
+  Server,
+  Smartphone,
+  TrendingDown,
+  TrendingUp,
+  Wifi
+} from 'lucide-react';
+import React, { useState } from 'react';
 
 // TypeScript Interfaces
 interface MetricCardData {
@@ -63,144 +65,8 @@ interface TrafficDistribution {
   unicast: number;
 }
 
-// Mock Data Generation
-const generateTrafficData = (points: number): TrafficDataPoint[] => {
-  const data: TrafficDataPoint[] = [];
-  const now = new Date();
-  
-  for (let i = points - 1; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * 60000);
-    data.push({
-      time: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      packets: Math.floor(Math.random() * 500) + 800,
-      arpRequests: Math.floor(Math.random() * 50) + 20,
-      arpReplies: Math.floor(Math.random() * 45) + 18
-    });
-  }
-  
-  return data;
-};
+// Mock Data Generation (unused in production) -- removed helper
 
-const mockDeviceActivities: DeviceActivity[] = [
-  {
-    id: '1',
-    name: 'MacBook-Pro-Admin',
-    ip: '192.168.1.15',
-    type: 'laptop',
-    packetsSent: 45823,
-    packetsReceived: 52341,
-    activityLevel: 'high',
-    lastActive: '1 minute ago'
-  },
-  {
-    id: '2',
-    name: 'Galaxy-S24',
-    ip: '192.168.1.23',
-    type: 'mobile',
-    packetsSent: 23456,
-    packetsReceived: 28934,
-    activityLevel: 'medium',
-    lastActive: '3 minutes ago'
-  },
-  {
-    id: '3',
-    name: 'Dell-Workstation',
-    ip: '192.168.1.135',
-    type: 'laptop',
-    packetsSent: 38721,
-    packetsReceived: 41567,
-    activityLevel: 'high',
-    lastActive: '30 seconds ago'
-  },
-  {
-    id: '4',
-    name: 'RaspberryPi-IoT',
-    ip: '192.168.1.67',
-    type: 'iot',
-    packetsSent: 12345,
-    packetsReceived: 11234,
-    activityLevel: 'medium',
-    lastActive: '2 minutes ago'
-  },
-  {
-    id: '5',
-    name: 'iPhone-14',
-    ip: '192.168.1.89',
-    type: 'mobile',
-    packetsSent: 18934,
-    packetsReceived: 21456,
-    activityLevel: 'medium',
-    lastActive: '5 minutes ago'
-  },
-  {
-    id: '6',
-    name: 'LaserJet-Pro',
-    ip: '192.168.1.45',
-    type: 'printer',
-    packetsSent: 3456,
-    packetsReceived: 4123,
-    activityLevel: 'low',
-    lastActive: '15 minutes ago'
-  },
-  {
-    id: '7',
-    name: 'Smart-Thermostat',
-    ip: '192.168.1.178',
-    type: 'iot',
-    packetsSent: 5678,
-    packetsReceived: 5234,
-    activityLevel: 'low',
-    lastActive: '8 minutes ago'
-  },
-  {
-    id: '8',
-    name: 'ThinkPad-Lab-02',
-    ip: '192.168.1.102',
-    type: 'laptop',
-    packetsSent: 8234,
-    packetsReceived: 9123,
-    activityLevel: 'low',
-    lastActive: '1 hour ago'
-  }
-];
-
-const mockActivityEvents: ActivityEvent[] = [
-  {
-    id: '1',
-    type: 'active',
-    message: 'Dell-Workstation (192.168.1.135) became active',
-    timestamp: '2 minutes ago',
-    icon: <CheckCircle2 className="h-4 w-4 text-green-600" />
-  },
-  {
-    id: '2',
-    type: 'spike',
-    message: 'ARP traffic spike detected - 145 requests/min',
-    timestamp: '5 minutes ago',
-    icon: <TrendingUp className="h-4 w-4 text-blue-600" />
-  },
-  {
-    id: '3',
-    type: 'idle',
-    message: 'ThinkPad-Lab-02 (192.168.1.102) went idle',
-    timestamp: '12 minutes ago',
-    icon: <AlertCircle className="h-4 w-4 text-yellow-600" />
-  },
-  {
-    id: '4',
-    type: 'load_change',
-    message: 'Network load changed from Low to Medium',
-    timestamp: '18 minutes ago',
-    icon: <Activity className="h-4 w-4 text-slate-600" />
-  },
-  {
-    id: '5',
-    type: 'active',
-    message: 'Galaxy-S24 (192.168.1.23) became active',
-    timestamp: '25 minutes ago',
-    icon: <CheckCircle2 className="h-4 w-4 text-green-600" />
-  }
-];
 
 // Helper Functions
 const formatNumber = (num: number): string => {
@@ -261,20 +127,27 @@ const TrafficLineChart: React.FC<{ data: TrafficDataPoint[]; title: string; desc
   const graphWidth = width - padding.left - padding.right;
   const graphHeight = height - padding.top - padding.bottom;
 
-  const maxPackets = Math.max(...data.map(d => d.packets));
-  const minPackets = Math.min(...data.map(d => d.packets));
+  // Handle empty or minimal data
+  const hasValidData = data && data.length >= 2;
+  const maxPackets = hasValidData ? Math.max(...data.map(d => d.packets)) : 0;
+  const minPackets = hasValidData ? Math.min(...data.map(d => d.packets)) : 0;
+  const packetRange = maxPackets - minPackets;
 
   const scaleY = (value: number) => {
-    return graphHeight - ((value - minPackets) / (maxPackets - minPackets)) * graphHeight;
+    if (!hasValidData || packetRange === 0) return graphHeight / 2;
+    return graphHeight - ((value - minPackets) / packetRange) * graphHeight;
   };
 
   const scaleX = (index: number) => {
+    if (!hasValidData) return 0;
     return (index / (data.length - 1)) * graphWidth;
   };
 
-  const path = data
-    .map((d, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(i)} ${scaleY(d.packets)}`)
-    .join(' ');
+  const path = hasValidData
+    ? data
+        .map((d, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(i)} ${scaleY(d.packets)}`)
+        .join(' ')
+    : '';
 
   return (
     <Card>
@@ -283,82 +156,88 @@ const TrafficLineChart: React.FC<{ data: TrafficDataPoint[]; title: string; desc
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
-          <g transform={`translate(${padding.left}, ${padding.top})`}>
-            {/* Grid lines */}
-            {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => (
-              <g key={i}>
-                <line
-                  x1={0}
-                  y1={graphHeight * ratio}
-                  x2={graphWidth}
-                  y2={graphHeight * ratio}
-                  stroke="#e2e8f0"
-                  strokeWidth={1}
+        {!hasValidData ? (
+          <div className="flex items-center justify-center h-64 text-slate-500">
+            <p>No data available</p>
+          </div>
+        ) : (
+          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
+            <g transform={`translate(${padding.left}, ${padding.top})`}>
+              {/* Grid lines */}
+              {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => (
+                <g key={i}>
+                  <line
+                    x1={0}
+                    y1={graphHeight * ratio}
+                    x2={graphWidth}
+                    y2={graphHeight * ratio}
+                    stroke="#e2e8f0"
+                    strokeWidth={1}
+                  />
+                  <text
+                    x={-10}
+                    y={graphHeight * ratio + 5}
+                    textAnchor="end"
+                    className="text-xs fill-slate-500"
+                  >
+                    {Math.round(maxPackets - packetRange * ratio)}
+                  </text>
+                </g>
+              ))}
+
+              {/* Chart line */}
+              {path && (
+                <path
+                  d={path}
+                  fill="none"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
                 />
+              )}
+
+              {/* Data points */}
+              {data.map((d, i) => (
+                <circle
+                  key={i}
+                  cx={scaleX(i)}
+                  cy={scaleY(d.packets)}
+                  r={3}
+                  fill="#3b82f6"
+                />
+              ))}
+
+              {/* X-axis labels */}
+              {[0, Math.floor(data.length / 2), data.length - 1].map(i => (
                 <text
-                  x={-10}
-                  y={graphHeight * ratio + 5}
-                  textAnchor="end"
+                  key={i}
+                  x={scaleX(i)}
+                  y={graphHeight + 25}
+                  textAnchor="middle"
                   className="text-xs fill-slate-500"
                 >
-                  {Math.round(maxPackets - (maxPackets - minPackets) * ratio)}
+                  {data[i]?.time || ''}
                 </text>
-              </g>
-            ))}
-
-            {/* Chart line */}
-            <path
-              d={path}
-              fill="none"
-              stroke="#3b82f6"
-              strokeWidth={2}
-            />
-
-            {/* Data points */}
-            {data.map((d, i) => (
-              <circle
-                key={i}
-                cx={scaleX(i)}
-                cy={scaleY(d.packets)}
-                r={3}
-                fill="#3b82f6"
-              />
-            ))}
-
-            {/* X-axis labels */}
-            {[0, Math.floor(data.length / 2), data.length - 1].map(i => (
+              ))}
               <text
-                key={i}
-                x={scaleX(i)}
-                y={graphHeight + 25}
+                x={graphWidth / 2}
+                y={graphHeight + 35}
                 textAnchor="middle"
-                className="text-xs fill-slate-500"
+                className="text-xs fill-slate-600 font-medium"
               >
-                {data[i]?.time || ''}
+                Time
               </text>
-            ))}
-
-            {/* Axis labels */}
-            <text
-              x={graphWidth / 2}
-              y={graphHeight + 35}
-              textAnchor="middle"
-              className="text-xs fill-slate-600 font-medium"
-            >
-              Time
-            </text>
-            <text
-              x={-graphHeight / 2}
-              y={-45}
-              textAnchor="middle"
-              transform="rotate(-90)"
-              className="text-xs fill-slate-600 font-medium"
-            >
-              Packets per Second
-            </text>
-          </g>
-        </svg>
+              <text
+                x={-graphHeight / 2}
+                y={-45}
+                textAnchor="middle"
+                transform="rotate(-90)"
+                className="text-xs fill-slate-600 font-medium"
+              >
+                Packets per Second
+              </text>
+            </g>
+          </svg>
+        )}
       </CardContent>
     </Card>
   );
@@ -371,25 +250,33 @@ const ARPActivityChart: React.FC<{ data: TrafficDataPoint[] }> = ({ data }) => {
   const graphWidth = width - padding.left - padding.right;
   const graphHeight = height - padding.top - padding.bottom;
 
-  const maxValue = Math.max(
-    ...data.map(d => Math.max(d.arpRequests, d.arpReplies))
-  );
+  // Handle empty or minimal data
+  const hasValidData = data && data.length >= 2;
+  const maxValue = hasValidData
+    ? Math.max(...data.map(d => Math.max(d.arpRequests, d.arpReplies)))
+    : 0;
 
   const scaleY = (value: number) => {
+    if (!hasValidData || maxValue === 0) return graphHeight / 2;
     return graphHeight - (value / maxValue) * graphHeight;
   };
 
   const scaleX = (index: number) => {
+    if (!hasValidData) return 0;
     return (index / (data.length - 1)) * graphWidth;
   };
 
-  const requestsPath = data
-    .map((d, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(i)} ${scaleY(d.arpRequests)}`)
-    .join(' ');
+  const requestsPath = hasValidData
+    ? data
+        .map((d, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(i)} ${scaleY(d.arpRequests)}`)
+        .join(' ')
+    : '';
 
-  const repliesPath = data
-    .map((d, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(i)} ${scaleY(d.arpReplies)}`)
-    .join(' ');
+  const repliesPath = hasValidData
+    ? data
+        .map((d, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(i)} ${scaleY(d.arpReplies)}`)
+        .join(' ')
+    : '';
 
   return (
     <Card>
@@ -412,60 +299,70 @@ const ARPActivityChart: React.FC<{ data: TrafficDataPoint[] }> = ({ data }) => {
         </div>
       </CardHeader>
       <CardContent>
-        <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
-          <g transform={`translate(${padding.left}, ${padding.top})`}>
-            {/* Grid lines */}
-            {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => (
-              <g key={i}>
-                <line
-                  x1={0}
-                  y1={graphHeight * ratio}
-                  x2={graphWidth}
-                  y2={graphHeight * ratio}
-                  stroke="#e2e8f0"
-                  strokeWidth={1}
+        {!hasValidData ? (
+          <div className="flex items-center justify-center h-64 text-slate-500">
+            <p>No data available</p>
+          </div>
+        ) : (
+          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
+            <g transform={`translate(${padding.left}, ${padding.top})`}>
+              {/* Grid lines */}
+              {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => (
+                <g key={i}>
+                  <line
+                    x1={0}
+                    y1={graphHeight * ratio}
+                    x2={graphWidth}
+                    y2={graphHeight * ratio}
+                    stroke="#e2e8f0"
+                    strokeWidth={1}
+                  />
+                  <text
+                    x={-10}
+                    y={graphHeight * ratio + 5}
+                    textAnchor="end"
+                    className="text-xs fill-slate-500"
+                  >
+                    {Math.round(maxValue * (1 - ratio))}
+                  </text>
+                </g>
+              ))}
+
+              {/* ARP Requests line */}
+              {requestsPath && (
+                <path
+                  d={requestsPath}
+                  fill="none"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
                 />
+              )}
+
+              {/* ARP Replies line */}
+              {repliesPath && (
+                <path
+                  d={repliesPath}
+                  fill="none"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                />
+              )}
+
+              {/* X-axis labels */}
+              {[0, Math.floor(data.length / 2), data.length - 1].map(i => (
                 <text
-                  x={-10}
-                  y={graphHeight * ratio + 5}
-                  textAnchor="end"
+                  key={i}
+                  x={scaleX(i)}
+                  y={graphHeight + 25}
+                  textAnchor="middle"
                   className="text-xs fill-slate-500"
                 >
-                  {Math.round(maxValue * (1 - ratio))}
+                  {data[i]?.time || ''}
                 </text>
-              </g>
-            ))}
-
-            {/* ARP Requests line */}
-            <path
-              d={requestsPath}
-              fill="none"
-              stroke="#3b82f6"
-              strokeWidth={2}
-            />
-
-            {/* ARP Replies line */}
-            <path
-              d={repliesPath}
-              fill="none"
-              stroke="#10b981"
-              strokeWidth={2}
-            />
-
-            {/* X-axis labels */}
-            {[0, Math.floor(data.length / 2), data.length - 1].map(i => (
-              <text
-                key={i}
-                x={scaleX(i)}
-                y={graphHeight + 25}
-                textAnchor="middle"
-                className="text-xs fill-slate-500"
-              >
-                {data[i]?.time || ''}
-              </text>
-            ))}
-          </g>
-        </svg>
+              ))}
+            </g>
+          </svg>
+        )}
       </CardContent>
     </Card>
   );
@@ -473,6 +370,24 @@ const ARPActivityChart: React.FC<{ data: TrafficDataPoint[] }> = ({ data }) => {
 
 const TrafficDistributionChart: React.FC<{ distribution: TrafficDistribution }> = ({ distribution }) => {
   const total = distribution.broadcast + distribution.unicast;
+  
+  // Handle case where total is 0
+  if (total === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Traffic Distribution</CardTitle>
+          <CardDescription>Broadcast vs Unicast traffic</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-64 text-slate-500">
+            <p>No traffic data available</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+  
   const broadcastPercent = (distribution.broadcast / total) * 100;
   const unicastPercent = (distribution.unicast / total) * 100;
 
@@ -481,7 +396,6 @@ const TrafficDistributionChart: React.FC<{ distribution: TrafficDistribution }> 
   const centerY = 120;
   const innerRadius = 50;
 
-  const broadcastAngle = (broadcastPercent / 100) * 360;
   const unicastAngle = (unicastPercent / 100) * 360;
 
   const createArc = (startAngle: number, endAngle: number, outerR: number, innerR: number) => {
@@ -661,32 +575,67 @@ const DeviceActivityTable: React.FC<{ devices: DeviceActivity[] }> = ({ devices 
   );
 };
 
-const ActivityEventFeed: React.FC<{ events: ActivityEvent[] }> = ({ events }) => (
-  <Card>
-    <CardHeader>
-      <CardTitle>Activity Timeline</CardTitle>
-      <CardDescription>Recent network events and changes</CardDescription>
-    </CardHeader>
-    <CardContent>
-      <div className="space-y-4">
-        {events.map((event) => (
-          <div key={event.id} className="flex items-start gap-3 pb-3 border-b border-slate-100 last:border-0">
-            <div className="mt-0.5">{event.icon}</div>
-            <div className="flex-1">
-              <p className="text-sm text-slate-900">{event.message}</p>
-              <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                {event.timestamp}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </CardContent>
-  </Card>
-);
+const ActivityEventFeed: React.FC<{ events: ActivityEvent[] }> = ({ events }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 5;
+  const totalPages = Math.ceil(events.length / pageSize);
 
-const InsightsPanel: React.FC = () => (
+  const startIdx = (currentPage - 1) * pageSize;
+  const pagedEvents = events.slice(startIdx, startIdx + pageSize);
+
+  const handlePrev = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
+  const handleNext = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Activity Timeline</CardTitle>
+        <CardDescription>Recent network events and changes</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {pagedEvents.map((event) => (
+            <div key={event.id} className="flex items-start gap-3 pb-3 border-b border-slate-100 last:border-0">
+              <div className="mt-0.5">{event.icon}</div>
+              <div className="flex-1">
+                <p className="text-sm text-slate-900">{event.message}</p>
+                <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {event.timestamp}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex justify-between mt-4 items-center">
+            <button
+              onClick={handlePrev}
+              disabled={currentPage === 1}
+              className="px-3 py-1 rounded bg-slate-100 text-slate-700 disabled:opacity-50 hover:bg-slate-200 transition-colors"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-slate-500">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={handleNext}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 rounded bg-slate-100 text-slate-700 disabled:opacity-50 hover:bg-slate-200 transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+const InsightsPanel: React.FC<{ insights: NetworkInsight[] }> = ({ insights }) => (
   <Card>
     <CardHeader>
       <CardTitle>Network Insights</CardTitle>
@@ -694,29 +643,30 @@ const InsightsPanel: React.FC = () => (
     </CardHeader>
     <CardContent>
       <div className="space-y-3">
-        <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
-          <TrendingUp className="h-5 w-5 text-blue-600 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium text-slate-900">Network usage is higher than usual</p>
-            <p className="text-xs text-slate-600 mt-1">Activity increased by 23% compared to yesterday</p>
+        {insights.length > 0 ? insights.map((insight) => (
+          <div key={`${insight.title}-${insight.timestamp}`} className={`flex items-start gap-3 p-3 rounded-lg ${
+            insight.type === 'warning' ? 'bg-yellow-50' :
+            insight.type === 'error' ? 'bg-red-50' :
+            insight.type === 'success' ? 'bg-green-50' : 'bg-blue-50'
+          }`}>
+            {insight.type === 'warning' ? <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" /> :
+             insight.type === 'error' ? <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" /> :
+             insight.type === 'success' ? <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" /> :
+             <Activity className="h-5 w-5 text-blue-600 mt-0.5" />}
+            <div>
+              <p className="text-sm font-medium text-slate-900">{insight.title}</p>
+              <p className="text-xs text-slate-600 mt-1">{insight.description}</p>
+            </div>
           </div>
-        </div>
-
-        <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
-          <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium text-slate-900">Most active device: MacBook-Pro-Admin</p>
-            <p className="text-xs text-slate-600 mt-1">Generated 45.8K packets sent in the last hour</p>
+        )) : (
+          <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+            <Activity className="h-5 w-5 text-slate-600 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-slate-900">No insights available</p>
+              <p className="text-xs text-slate-600 mt-1">Network activity is being monitored</p>
+            </div>
           </div>
-        </div>
-
-        <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
-          <Activity className="h-5 w-5 text-slate-600 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium text-slate-900">ARP activity is stable</p>
-            <p className="text-xs text-slate-600 mt-1">Request/reply ratio within normal range</p>
-          </div>
-        </div>
+        )}
       </div>
     </CardContent>
   </Card>
@@ -724,52 +674,92 @@ const InsightsPanel: React.FC = () => (
 
 // Main Network Activity Page Component
 const NetworkActivityPage: React.FC = () => {
+  const { data, isConnected, error, getActiveDevices, getLatestInsights, formatBytes, formatTimestamp, requestRefresh } = useWebSocket();
   const [timeRange, setTimeRange] = useState('1h');
-  const [trafficData, setTrafficData] = useState<TrafficDataPoint[]>([]);
-  const [currentPacketsPerSecond, setCurrentPacketsPerSecond] = useState(1243);
 
-  useEffect(() => {
-    // Initialize data based on time range
-    const points = timeRange === '5m' ? 5 : timeRange === '1h' ? 12 : 24;
-    setTrafficData(generateTrafficData(points));
-  }, [timeRange]);
+  // Transform data to match component interfaces (compute ARP rate per minute)
+  const trafficData: TrafficDataPoint[] = (() => {
+    if (!data?.metrics?.packet_rate_history) return [];
+    const arpHist = data.metrics.arp_history || [];
+    const computeRate = (current: { timestamp: string; requests: number }, prev?: { timestamp: string; requests: number }) => {
+      if (!prev) return 0;
+      const t1 = new Date(current.timestamp).getTime();
+      const t0 = new Date(prev.timestamp).getTime();
+      const mins = (t1 - t0) / (1000 * 60);
+      let delta = current.requests - prev.requests;
+      if (delta < 0) delta = current.requests;
+      return mins > 0 ? Math.round(delta / mins) : 0;
+    };
 
-  // Simulate real-time updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentPacketsPerSecond(prev => {
-        const change = Math.floor(Math.random() * 100) - 50;
-        return Math.max(800, Math.min(1500, prev + change));
-      });
+    return data.metrics.packet_rate_history.map(item => {
+      const time = new Date(item.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const packets = item.value;
+      const arpPoint = arpHist.find(arp => arp.timestamp === item.timestamp);
+      let arpRate = 0;
+      if (arpPoint) {
+        const idx = arpHist.findIndex(a => a.timestamp === arpPoint.timestamp);
+        if (idx > 0) {
+          arpRate = computeRate(arpPoint, arpHist[idx - 1]);
+        }
+      }
+      return {
+        time,
+        packets,
+        arpRequests: arpRate,
+        arpReplies: arpPoint?.replies || 0,
+      };
+    });
+  })();
 
-      setTrafficData(prev => {
-        const newPoint: TrafficDataPoint = {
-          time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-          packets: Math.floor(Math.random() * 500) + 800,
-          arpRequests: Math.floor(Math.random() * 50) + 20,
-          arpReplies: Math.floor(Math.random() * 45) + 18
-        };
-        return [...prev.slice(1), newPoint];
-      });
-    }, 3000);
+  // Get current packets per second from latest traffic data
+  const currentPacketsPerSecond = trafficData.length > 0 
+    ? trafficData[trafficData.length - 1].packets 
+    : data?.metrics?.packets_per_second || 0;
 
-    return () => clearInterval(interval);
-  }, []);
+  const deviceActivities: DeviceActivity[] = data?.devices?.map(device => ({
+    id: device.id,
+    name: device.name,
+    ip: device.ip_address,
+    type: device.type as 'laptop' | 'mobile' | 'printer' | 'iot' | 'network',
+    packetsSent: device.packets_sent,
+    packetsReceived: device.packets_received,
+    activityLevel: device.activity_level,
+    lastActive: formatTimestamp(device.last_active),
+  })) || [];
 
-  const handleRefresh = () => {
-    const points = timeRange === '5m' ? 5 : timeRange === '1h' ? 12 : 24;
-    setTrafficData(generateTrafficData(points));
-  };
+  const activityEvents: ActivityEvent[] = data?.timeline?.map(event => ({
+    id: event.device_mac,
+    type: event.event as 'active' | 'idle' | 'spike' | 'load_change',
+    message: event.details,
+    timestamp: formatTimestamp(event.timestamp),
+    icon: event.event === 'device_active' ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <AlertCircle className="h-4 w-4 text-yellow-600" />,
+  })) || [];
 
-  const trafficDistribution: TrafficDistribution = {
-    broadcast: 145000,
-    unicast: 982000
-  };
+  const trafficDistribution: TrafficDistribution = data?.metrics ? {
+    broadcast: data.metrics.broadcast_traffic || 0,
+    unicast: data.metrics.unicast_traffic || 0,
+  } : { broadcast: 0, unicast: 0 };
 
-  const activeDevices = mockDeviceActivities.filter(d => d.activityLevel !== 'low').length;
-  const avgArpRate = trafficData.length > 0 
-    ? Math.round(trafficData.reduce((sum, d) => sum + d.arpRequests, 0) / trafficData.length)
-    : 87;
+  const activeDevices = getActiveDevices().length;
+  const latestInsights = getLatestInsights();
+
+  // derive current ARP rate (req/min) from last two history points
+  const currentArpRate = (() => {
+    const h = data?.metrics?.arp_history;
+    if (!h || h.length < 2) return 0;
+    const last = h[h.length - 1];
+    const prev = h[h.length - 2];
+    const mins = (new Date(last.timestamp).getTime() - new Date(prev.timestamp).getTime()) / (1000 * 60);
+    let delta = last.requests - prev.requests;
+    if (delta < 0) delta = last.requests;
+    return mins > 0 ? Math.round(delta / mins) : 0;
+  })();
+
+  // keep previous rate for trend arrows
+  const [prevArpRate, setPrevArpRate] = useState<number>(0);
+  React.useEffect(() => {
+    setPrevArpRate(currentArpRate);
+  }, [currentArpRate]);
 
   const metricsData: MetricCardData[] = [
     {
@@ -790,37 +780,85 @@ const NetworkActivityPage: React.FC = () => {
     },
     {
       title: 'ARP Requests Rate',
-      value: `${avgArpRate}/min`,
+      value: `${currentArpRate}/min`,
       description: 'Address resolution activity',
       icon: <Radio className="h-4 w-4" />,
-      trend: 'stable',
-      trendValue: 'Within normal range'
+      trend: currentArpRate >= prevArpRate ? 'up' : 'down',
+      trendValue: `${currentArpRate - prevArpRate >= 0 ? `+${currentArpRate - prevArpRate}` : currentArpRate - prevArpRate} req/min`
     },
     {
       title: 'Broadcast Traffic',
-      value: `${((trafficDistribution.broadcast / (trafficDistribution.broadcast + trafficDistribution.unicast)) * 100).toFixed(1)}%`,
+      value: trafficDistribution.broadcast || trafficDistribution.unicast
+        ? `${((trafficDistribution.broadcast / (trafficDistribution.broadcast + trafficDistribution.unicast)) * 100).toFixed(1)}%`
+        : '0%',
       description: 'Of total network traffic',
       icon: <Radio className="h-4 w-4" />,
-      trend: 'down',
-      trendValue: '-2% from average'
+      trend: trafficDistribution.broadcast >= trafficDistribution.unicast ? 'up' : 'down',
+      trendValue: `${((trafficDistribution.broadcast - trafficDistribution.unicast) / ((trafficDistribution.broadcast + trafficDistribution.unicast) || 1) * 100).toFixed(1)}% diff`
     },
+
     {
       title: 'Unicast Traffic',
-      value: `${((trafficDistribution.unicast / (trafficDistribution.broadcast + trafficDistribution.unicast)) * 100).toFixed(1)}%`,
+      value: trafficDistribution.broadcast || trafficDistribution.unicast
+        ? `${((trafficDistribution.unicast / (trafficDistribution.broadcast + trafficDistribution.unicast)) * 100).toFixed(1)}%`
+        : '0%',
       description: 'Direct device communication',
       icon: <Activity className="h-4 w-4" />,
-      trend: 'up',
-      trendValue: '+2% from average'
+      trend: trafficDistribution.unicast >= trafficDistribution.broadcast ? 'up' : 'down',
+      trendValue: `${((trafficDistribution.unicast - trafficDistribution.broadcast) / ((trafficDistribution.broadcast + trafficDistribution.unicast) || 1) * 100).toFixed(1)}% diff`
     },
     {
       title: 'Network Load',
-      value: 'Medium',
+      value: data?.metrics?.network_load ? `${formatBytes(data.metrics.network_load)}/s` : '0 B/s',
       description: 'Overall utilization status',
       icon: <TrendingUp className="h-4 w-4" />,
       trend: 'stable',
       trendValue: 'Stable'
     }
   ];
+
+  if (!isConnected) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <Activity className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+            <h2 className="text-lg font-semibold text-slate-900 mb-2">Connecting to Network Activity Feed</h2>
+            <p className="text-slate-500">Please wait while we establish connection...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-lg font-semibold text-slate-900 mb-2">Connection Error</h2>
+            <p className="text-slate-500 mb-4">Failed to connect to network activity feed.</p>
+            <Button onClick={() => window.location.reload()}>Retry</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <RefreshCw className="h-12 w-12 text-slate-400 mx-auto mb-4 animate-spin" />
+            <h2 className="text-lg font-semibold text-slate-900 mb-2">Loading Network Data</h2>
+            <p className="text-slate-500">Fetching real-time network activity...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -843,7 +881,7 @@ const NetworkActivityPage: React.FC = () => {
             </SelectContent>
           </Select>
           
-          <Button onClick={handleRefresh} variant="outline" size="sm">
+          <Button onClick={requestRefresh} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
@@ -854,8 +892,8 @@ const NetworkActivityPage: React.FC = () => {
 
       {/* High-Level Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {metricsData.map((metric, idx) => (
-          <ActivityMetricCard key={idx} {...metric} />
+        {metricsData.map((metric) => (
+          <ActivityMetricCard key={metric.title} {...metric} />
         ))}
       </div>
 
@@ -878,12 +916,12 @@ const NetworkActivityPage: React.FC = () => {
       <ARPActivityChart data={trafficData} />
 
       {/* Device Activity Table */}
-      <DeviceActivityTable devices={mockDeviceActivities} />
+      <DeviceActivityTable devices={deviceActivities} />
 
       {/* Bottom Section: Activity Feed and Insights */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ActivityEventFeed events={mockActivityEvents} />
-        <InsightsPanel />
+        <ActivityEventFeed events={activityEvents} />
+        <InsightsPanel insights={latestInsights} />
       </div>
     </div>
   );

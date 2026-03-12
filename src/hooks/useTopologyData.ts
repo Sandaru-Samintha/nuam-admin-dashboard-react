@@ -16,6 +16,7 @@ export interface Device {
   data_received: number;
   packet_count: number;
   online: boolean;
+  
 }
 
 export const useTopologyData = (showInactive: boolean) => {

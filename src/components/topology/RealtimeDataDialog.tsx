@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import {
-  X,
-  Activity,
-  Globe,
-  Clock,
-  Download,
-  Upload,
-  Zap,
-  Network,
-  Eye,
-  Shield,
-  TrendingUp,
-} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import {
+    Activity,
+    Clock,
+    Download,
+    Eye,
+    Globe,
+    Network,
+    Shield,
+    TrendingUp,
+    Upload,
+    X,
+    Zap,
+} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 
 interface WebsiteAccess {
   url: string;
@@ -284,9 +284,9 @@ const RealtimeDataDialog: React.FC<RealtimeDataDialogProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {websiteAccesses.map((access, idx) => (
+                  {websiteAccesses.map((access) => (
                     <tr
-                      key={idx}
+                      key={`${access.url}-${access.timestamp}`}
                       className="hover:bg-gray-50 transition-colors duration-150 animate-slide-up"
                     >
                       <td className="py-4 px-6 text-sm font-mono text-gray-900">{access.url}</td>

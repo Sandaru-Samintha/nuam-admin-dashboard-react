@@ -26,13 +26,17 @@ const Dashboard: React.FC = () => {
   const [arpHistory, setArpHistory] = useState<ArpHistoryPoint[]>([]);
 
   // Track ARP history for charts
+  const [prevArpRate, setPrevArpRate] = useState<number>(0);
+
   useEffect(() => {
     const newPoint: ArpHistoryPoint = {
       timestamp: new Date().toLocaleTimeString(),
       arpRequests: arpRate,
     };
-
     setArpHistory(prev => [...prev.slice(-29), newPoint]); // Keep last 30 points
+
+    // update previous rate for trend calculation
+    setPrevArpRate(arpRate);
   }, [arpRate]);
 
   // Broadcast ratio calculation
@@ -73,21 +77,24 @@ const Dashboard: React.FC = () => {
           value={activeDevices}
           description="Currently connected"
           icon={<Wifi className="h-4 w-4" />}
-          trend={`${activeDevices - idleDevices >= 0 ? `+${activeDevices - idleDevices}` : activeDevices - idleDevices} since last update`}
+          trendDirection={activeDevices - idleDevices >= 0 ? 'up' : 'down'}
+          trendValue={`${activeDevices - idleDevices >= 0 ? `+${activeDevices - idleDevices}` : activeDevices - idleDevices} since last update`}
         />
         <MetricCard
           title="New Devices Today"
           value={newDevicesToday}
           description="First-time connections today"
           icon={<Server className="h-4 w-4" />}
-          trend={`${newDevicesToday} added today`}
+          trendDirection={newDevicesToday > 0 ? 'up' : 'stable'}
+          trendValue={`${newDevicesToday} added today`}
         />
         <MetricCard
           title="Inactive Devices"
           value={idleDevices}
           description="No recent activity"
           icon={<AlertCircle className="h-4 w-4" />}
-          trend={`${idleDevices} devices idle`}
+          trendDirection={idleDevices > 0 ? 'down' : 'stable'}
+          trendValue={`${idleDevices} devices idle`}
         />
         <MetricCard
           title="Network Status"
@@ -104,6 +111,8 @@ const Dashboard: React.FC = () => {
           value={`${arpRate} req/min`}
           description="Current ARP resolution activity"
           icon={<Activity className="h-4 w-4" />}
+          trendDirection={arpRate >= prevArpRate ? 'up' : 'down'}
+          trendValue={`${arpRate - prevArpRate >= 0 ? `+${arpRate - prevArpRate}` : arpRate - prevArpRate} req/min`}
         />
         <MetricCard
           title="Broadcast Ratio"

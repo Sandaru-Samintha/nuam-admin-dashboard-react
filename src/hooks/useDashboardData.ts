@@ -1,6 +1,6 @@
 import { mapDevice, mapEvent } from "@/lib/mappers";
-import { Activity } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Activity } from 'lucide-react';
+import React, { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   connectWebSocket,
   disconnectWebSocket,
@@ -23,7 +23,7 @@ export interface Event {
   type: "join" | "leave" | "reassign" | "inactive" | "metric";
   message: string;
   timestamp: string;
-  icon?: React.ReactNode;
+  icon?: ReactNode;
   payload?: any;
 }
 
@@ -60,9 +60,8 @@ export const useDashboardData = () => {
     newDevicesToday: 0,
   });
 
-  // Track previous metric for ARP rate calculation
   const prevArpRef = useRef<{ arpRequests: number; timestamp: number } | null>(
-    null,
+    null
   );
   const [arpRate, setArpRate] = useState<number>(0);
 
@@ -71,10 +70,7 @@ export const useDashboardData = () => {
       setIsConnected(true);
 
       // DEVICE_JOINED
-      if (
-        data.event?.type === "TOPOLOGY" &&
-        data.event?.subtype === "DEVICE_JOINED"
-      ) {
+      if (data.event?.type === "TOPOLOGY" && data.event?.subtype === "DEVICE_JOINED") {
         const device = mapDevice(data.event.payload.device);
         const event = mapEvent(data.event);
 
@@ -82,23 +78,16 @@ export const useDashboardData = () => {
           prev.some((d) => d.id === device.id)
             ? prev
             : [
-                {
-                  ...device,
-                  status: "active",
-                  lastSeen: new Date().toISOString(),
-                },
+                { ...device, status: "active", lastSeen: new Date().toISOString() },
                 ...prev,
-              ],
+              ]
         );
 
         setEvents((prev) => [event, ...prev]);
       }
 
       // DEVICE_LEFT
-      if (
-        data.event?.type === "TOPOLOGY" &&
-        data.event?.subtype === "DEVICE_LEFT"
-      ) {
+      if (data.event?.type === "TOPOLOGY" && data.event?.subtype === "DEVICE_LEFT") {
         const deviceId = data.event.payload.device.device_id;
         const event = mapEvent(data.event);
 
@@ -106,22 +95,17 @@ export const useDashboardData = () => {
           prev.map((d) =>
             d.id === deviceId
               ? { ...d, status: "idle", lastSeen: new Date().toISOString() }
-              : d,
-          ),
+              : d
+          )
         );
 
         setEvents((prev) => [event, ...prev]);
       }
 
       // METRIC update
-      if (
-        data.event?.type === "METRIC" &&
-        data.event?.subtype === "PERIODIC_METRIC_STATE"
-      ) {
+      if (data.event?.type === "METRIC" && data.event?.subtype === "PERIODIC_METRIC_STATE") {
         const m = data.event.payload.metrics;
-        const metricTime = new Date(
-          m.measure_time || data.event.meta.timestamp,
-        ).getTime();
+        const metricTime = new Date(m.measure_time || data.event.meta.timestamp).getTime();
 
         // Update metrics
         setMetrics({
@@ -136,42 +120,42 @@ export const useDashboardData = () => {
         });
 
         if (data.dashboard_stats?.devices) {
-          const incomingDevices = data.dashboard_stats.devices.map(
-            (d: any) => ({
-              id: d.id.toString(),
-              name: d.name || "Unknown",
-              ip: d.ip || "-",
-              device_id: d.device_id || "-",
-              vendor: d.vendor || "-",
-              type: d.type || "unknown",
-              status: d.status,
-              lastSeen: new Date().toISOString(),
-            }),
-          );
+          const incomingDevices = data.dashboard_stats.devices.map((d: any) => ({
+            id: d.id.toString(),
+            name: d.name || "Unknown",
+            ip: d.ip || "-",
+            device_id: d.device_id || "-",
+            vendor: d.vendor || "-",
+            type: d.type || "unknown",
+            status: d.status,
+            lastSeen: new Date().toISOString(),
+          }));
 
           setDevices((prev) => {
             const updated = [...prev];
-
-            incomingDevices.forEach((device) => {
+            incomingDevices.forEach((device: any) => {
               const exists = updated.some((d) => d.id === device.id);
-
-              if (!exists) {
-                updated.unshift(device); // add new device at top
-              }
+              if (!exists) updated.unshift(device);
             });
-
             return updated;
           });
         }
 
-
         // ARP rate calculation
         if (prevArpRef.current) {
-          const timeDiffMs =
-            new Date().getTime() - new Date(m.measure_time).getTime();
+          const timeDiffMs = metricTime - prevArpRef.current.timestamp;
           const timeDiffMins = timeDiffMs / (1000 * 60);
-          const rate = timeDiffMins > 0 ? m.arp_requests / timeDiffMins : 0;
-          setArpRate(Math.round(rate));
+          // compute delta; if counter reset (negative delta) use current count
+          let arpDelta = m.arp_requests - prevArpRef.current.arpRequests;
+          if (arpDelta < 0) {
+            // Counter likely reset on backend restart - fall back to current value
+            arpDelta = m.arp_requests;
+          }
+          const rate = timeDiffMins > 0 ? arpDelta / timeDiffMins : 0;
+          setArpRate(Math.round(Math.max(0, rate))); // Ensure non-negative
+        } else {
+          // On first update we have no baseline. Rate remains 0 until we can compute a delta.
+          setArpRate(0);
         }
 
         prevArpRef.current = {
@@ -179,23 +163,23 @@ export const useDashboardData = () => {
           timestamp: metricTime,
         };
 
-        // Add metric event to feed
         const metricEvent: Event = {
           id: data.event.meta.sequence.toString(),
           type: "metric",
           message: `Metrics update: ${m.total_devices} devices, ${m.active_devices} active`,
           timestamp: new Date(data.event.meta.timestamp).toLocaleTimeString(),
-          icon: <Activity className="h-4 w-4 text-blue-600" />,
+          // ReactNode created without JSX so file can remain .ts
+          icon: React.createElement(Activity, { className: "h-4 w-4" }),
           payload: m,
         };
         setEvents((prev) => [metricEvent, ...prev]);
       }
-      // Update dashboard stats from new backend format
+
+      // Dashboard stats
       if (data.dashboard_stats) {
         setDashboardStats({
           totalDevices: data.dashboard_stats.total_devices,
           activeDevices: data.dashboard_stats.active_devices,
-          // TODO: FIX THE database data gathering issue
           idleDevices: data.dashboard_stats.idle_devices,
           newDevicesToday: data.dashboard_stats.new_devices_today,
         });
@@ -207,10 +191,7 @@ export const useDashboardData = () => {
 
   // Poll connection status
   useEffect(() => {
-    const interval = setInterval(
-      () => setIsConnected(isWebSocketConnected()),
-      500,
-    );
+    const interval = setInterval(() => setIsConnected(isWebSocketConnected()), 500);
     return () => clearInterval(interval);
   }, []);
 
