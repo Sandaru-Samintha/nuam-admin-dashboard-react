@@ -126,7 +126,6 @@ export const useDashboardData = () => {
           m.measure_time || data.event.meta.timestamp,
         ).getTime();
 
-        // Update metrics
         setMetrics((prevMetrics) => ({
           ...prevMetrics,
           dataSent: m.data_sent,

@@ -107,12 +107,12 @@ const mapDeviceType = (type: string): 'laptop' | 'mobile' | 'printer' | 'iot' | 
 // Helper to generate insights from metrics
 const generateInsights = (metrics: NetworkMetrics, devices: DeviceActivity[]): NetworkInsight[] => {
   const insights: NetworkInsight[] = [];
-  
+
   // Most active device insight
-  const mostActive = [...devices].sort((a, b) => 
+  const mostActive = [...devices].sort((a, b) =>
     (b.packetsSent + b.packetsReceived) - (a.packetsSent + a.packetsReceived)
   )[0];
-  
+
   if (mostActive) {
     insights.push({
       id: `most-active-${Date.now()}`,
@@ -126,7 +126,7 @@ const generateInsights = (metrics: NetworkMetrics, devices: DeviceActivity[]): N
   const totalTraffic = metrics.unicastPackets + metrics.broadcastPackets;
   if (totalTraffic > 0) {
     const broadcastRatio = (metrics.broadcastPackets / totalTraffic) * 100;
-    
+
     if (broadcastRatio > 20) {
       insights.push({
         id: `high-broadcast-${Date.now()}`,
@@ -184,22 +184,22 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  
+
   // Track previous metric for rate calculations
-  const prevMetricsRef = useRef<{ 
-    timestamp: number; 
-    arpRequests: number; 
+  const prevMetricsRef = useRef<{
+    timestamp: number;
+    arpRequests: number;
     packets: number;
     broadcastPackets: number;
     unicastPackets: number;
   } | null>(null);
-  
+
   // Track previous ARP for rate calculation
   const prevArpRef = useRef<{
     arpRequests: number;
     timestamp: number;
   } | null>(null);
-  
+
   const trafficHistoryRef = useRef<TrafficDataPoint[]>([]);
   const maxHistoryPoints = timeRange === '5m' ? 5 : timeRange === '1h' ? 12 : 24;
 
@@ -220,7 +220,7 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
     // Determine network load based on packets per second
     let networkLoad = 'Low';
     let networkLoadTrend: 'up' | 'down' | 'stable' = 'stable';
-    
+
     if (packetsPerSecond > 1400) {
       networkLoad = 'High';
       networkLoadTrend = 'up';
@@ -239,8 +239,8 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
         description: 'Current network throughput',
         icon: undefined,
         trend: packetsPerSecond > 1300 ? 'up' : packetsPerSecond < 700 ? 'down' : 'stable',
-        trendValue: packetsPerSecond > 1300 ? '+12% from baseline' : 
-                   packetsPerSecond < 700 ? '-8% from baseline' : 'Within normal range'
+        trendValue: packetsPerSecond > 1300 ? '+12% from baseline' :
+          packetsPerSecond < 700 ? '-8% from baseline' : 'Within normal range'
       },
       {
         title: 'Active Devices',
@@ -248,8 +248,8 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
         description: 'Currently transmitting',
         icon: undefined,
         trend: activeDevices > 5 ? 'up' : activeDevices < 2 ? 'down' : 'stable',
-        trendValue: activeDevices > 5 ? '+2 from average' : 
-                   activeDevices < 2 ? '-1 from average' : 'No change'
+        trendValue: activeDevices > 5 ? '+2 from average' :
+          activeDevices < 2 ? '-1 from average' : 'No change'
       },
       {
         title: 'ARP Requests Rate',
@@ -257,8 +257,8 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
         description: 'Address resolution activity',
         icon: undefined,
         trend: currentArpRate > 100 ? 'up' : currentArpRate < 40 ? 'down' : 'stable',
-        trendValue: currentArpRate > 100 ? '+15% from average' : 
-                   currentArpRate < 40 ? '-10% from average' : 'Within normal range'
+        trendValue: currentArpRate > 100 ? '+15% from average' :
+          currentArpRate < 40 ? '-10% from average' : 'Within normal range'
       },
       {
         title: 'Broadcast Traffic',
@@ -266,8 +266,8 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
         description: 'Of total network traffic',
         icon: undefined,
         trend: parseFloat(broadcastPercent) > 15 ? 'up' : parseFloat(broadcastPercent) < 8 ? 'down' : 'stable',
-        trendValue: parseFloat(broadcastPercent) > 15 ? '+2% from average' : 
-                   parseFloat(broadcastPercent) < 8 ? '-2% from average' : 'Stable'
+        trendValue: parseFloat(broadcastPercent) > 15 ? '+2% from average' :
+          parseFloat(broadcastPercent) < 8 ? '-2% from average' : 'Stable'
       },
       {
         title: 'Unicast Traffic',
@@ -275,8 +275,8 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
         description: 'Direct device communication',
         icon: undefined,
         trend: parseFloat(unicastPercent) > 92 ? 'up' : parseFloat(unicastPercent) < 85 ? 'down' : 'stable',
-        trendValue: parseFloat(unicastPercent) > 92 ? '+2% from average' : 
-                   parseFloat(unicastPercent) < 85 ? '-2% from average' : 'Stable'
+        trendValue: parseFloat(unicastPercent) > 92 ? '+2% from average' :
+          parseFloat(unicastPercent) < 85 ? '-2% from average' : 'Stable'
       },
       {
         title: 'Network Load',
@@ -284,8 +284,8 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
         description: 'Overall utilization status',
         icon: undefined,
         trend: networkLoadTrend,
-        trendValue: networkLoad === 'High' ? 'Increasing' : 
-                   networkLoad === 'Low' ? 'Decreasing' : 'Stable'
+        trendValue: networkLoad === 'High' ? 'Increasing' :
+          networkLoad === 'Low' ? 'Decreasing' : 'Stable'
       }
     ];
   }, []);
@@ -298,7 +298,7 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
 
   useEffect(() => {
     setIsLoading(true);
-    
+
     connectWebSocket((data: any) => {
       setIsConnected(true);
       setError(null);
@@ -314,11 +314,12 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
           packetsSent: deviceData.packets_sent || 0,
           packetsReceived: deviceData.packets_received || 0,
           activityLevel: determineActivityLevel(
-            deviceData.packets_sent || 0, 
+            deviceData.packets_sent || 0,
             deviceData.packets_received || 0
           ),
           lastActive: 'Just now'
         };
+
 
         setDevices(prev => {
           const exists = prev.some(d => d.id === device.id);
@@ -340,11 +341,11 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
       // Handle DEVICE_LEFT events
       if (data.event?.type === "TOPOLOGY" && data.event?.subtype === "DEVICE_LEFT") {
         const deviceId = data.event.payload.device.device_id;
-        
-        setDevices(prev => {
+
+        setDevices((prev: any) => {
           const device = prev.find(d => d.id === deviceId);
           const updated = prev.map(d => d.id === deviceId ? { ...d, activityLevel: 'low', lastActive: 'Just now' } : d);
-          
+
           const event: ActivityEvent = {
             id: data.event.meta.sequence.toString(),
             type: 'idle',
@@ -352,7 +353,7 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
             timestamp: new Date(data.event.meta.timestamp).toLocaleTimeString()
           };
           setEvents(prevEvents => [event, ...prevEvents].slice(0, 50));
-          
+
           return updated;
         });
       }
@@ -361,6 +362,8 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
       if (data.event?.type === "METRIC" && data.event?.subtype === "PERIODIC_METRIC_STATE") {
         const m = data.event.payload.metrics;
         const metricTime = new Date(m.measure_time || data.event.meta.timestamp).getTime();
+        console.log("Received metric event:", m.measure_time, data.event.meta.timestamp, metricTime);
+
 
         const networkMetrics: NetworkMetrics = {
           totalDevices: m.total_devices || 0,
@@ -380,18 +383,23 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
         });
 
         // Update total devices count
-        setTotalDevicesCount(networkMetrics.totalDevices);
+        console.log("Updating active devices count:", m.active_devices);
+        setTotalDevicesCount(m.total_devices);
+        setActiveDevicesCount(m.active_devices);
+
+
 
         // Calculate packets per second
         let packetsPerSecond = 0;
-        
+
         if (prevMetricsRef.current) {
           const timeDiffMs = metricTime - prevMetricsRef.current.timestamp;
           const timeDiffSec = timeDiffMs / 1000;
-          
+          // console.log("Time difference for pps calculation (seconjjds):", prevMetricsRef.current.timestamp,);
+
           if (timeDiffSec > 0) {
-            // Calculate packets per second
-            const currentTotalPackets = networkMetrics.broadcastPackets + networkMetrics.unicastPackets;
+            // console.log("packet", m.total_packets)
+            const currentTotalPackets = m.total_packets;
             const packetsDiff = currentTotalPackets - prevMetricsRef.current.packets;
             packetsPerSecond = Math.round(Math.max(0, packetsDiff / timeDiffSec));
             setCurrentPacketsPerSecond(packetsPerSecond);
@@ -415,16 +423,16 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
         prevMetricsRef.current = {
           timestamp: metricTime,
           arpRequests: networkMetrics.arpRequests,
-          packets: networkMetrics.broadcastPackets + networkMetrics.unicastPackets,
+          packets: m.total_packets,
           broadcastPackets: networkMetrics.broadcastPackets,
           unicastPackets: networkMetrics.unicastPackets
         };
 
         // Add traffic data point
         const trafficPoint: TrafficDataPoint = {
-          time: new Date(m.measure_time || data.event.meta.timestamp).toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
+          time: new Date(m.measure_time || data.event.meta.timestamp).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit'
           }),
           packets: networkMetrics.broadcastPackets + networkMetrics.unicastPackets,
           arpRequests: networkMetrics.arpRequests,
@@ -445,44 +453,45 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
       }
 
       // Handle dashboard stats for device list and active devices count
-      if (data.dashboard_stats) {
-        // Update active devices count directly from dashboard_stats
-        if (data.dashboard_stats.active_devices !== undefined) {
-          setActiveDevicesCount(data.dashboard_stats.active_devices);
-        }
 
-        // Update total devices from dashboard_stats if available
-        if (data.dashboard_stats.total_devices !== undefined) {
-          setTotalDevicesCount(data.dashboard_stats.total_devices);
-        }
+      // if (data.dashboard_stats) {
+      //   // Update active devices count directly from dashboard_stats
+      //   if (data.dashboard_stats.active_devices !== undefined) {
+      //     setActiveDevicesCount(m.active_devices);
+      //   }
 
-        // Process devices array if present
-        if (data.dashboard_stats.devices && Array.isArray(data.dashboard_stats.devices)) {
-          const incomingDevices = data.dashboard_stats.devices.map((d: any) => ({
-            id: d.id || d.mac || d.mac_address,
-            name: d.name || d.hostname || 'Unknown',
-            ip: d.ip || d.ip_address || '-',
-            type: mapDeviceType(d.type || d.device_type || 'unknown'),
-            packetsSent: d.packets_sent || 0,
-            packetsReceived: d.packets_received || 0,
-            activityLevel: determineActivityLevel(d.packets_sent || 0, d.packets_received || 0),
-            lastActive: d.last_seen ? new Date(d.last_seen).toLocaleString() : 'Unknown'
-          }));
+      //   // Update total devices from dashboard_stats if available
+      //   if (data.dashboard_stats.total_devices !== undefined) {
+      //     setTotalDevicesCount(data.dashboard_stats.total_devices);
+      //   }
 
-          setDevices(prev => {
-            const updated = [...prev];
-            incomingDevices.forEach((device: DeviceActivity) => {
-              const index = updated.findIndex(d => d.id === device.id);
-              if (index >= 0) {
-                updated[index] = { ...updated[index], ...device };
-              } else {
-                updated.unshift(device);
-              }
-            });
-            return updated.slice(0, 100);
-          });
-        }
-      }
+      //   // Process devices array if present
+      //   if (data.dashboard_stats.devices && Array.isArray(data.dashboard_stats.devices)) {
+      //     const incomingDevices = data.dashboard_stats.devices.map((d: any) => ({
+      //       id: d.id || d.mac || d.mac_address,
+      //       name: d.name || d.hostname || 'Unknown',
+      //       ip: d.ip || d.ip_address || '-',
+      //       type: mapDeviceType(d.type || d.device_type || 'unknown'),
+      //       packetsSent: d.packets_sent || 0,
+      //       packetsReceived: d.packets_received || 0,
+      //       activityLevel: determineActivityLevel(d.packets_sent || 0, d.packets_received || 0),
+      //       lastActive: d.last_seen ? new Date(d.last_seen).toLocaleString() : 'Unknown'
+      //     }));
+
+      //     setDevices(prev => {
+      //       const updated = [...prev];
+      //       incomingDevices.forEach((device: DeviceActivity) => {
+      //         const index = updated.findIndex(d => d.id === device.id);
+      //         if (index >= 0) {
+      //           updated[index] = { ...updated[index], ...device };
+      //         } else {
+      //           updated.unshift(device);
+      //         }
+      //       });
+      //       return updated.slice(0, 100);
+      //     });
+      //   }
+      // }
 
       // Handle traffic spike events
       if (data.event?.type === "METRIC" && data.event?.subtype === "TRAFFIC_SPIKE") {
@@ -503,7 +512,7 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
   useEffect(() => {
     if (devices.length > 0 || distribution.broadcast + distribution.unicast > 0) {
       const networkMetrics: NetworkMetrics = {
-        totalDevices: totalDevicesCount || devices.length,
+        totalDevices: totalDevicesCount,
         activeDevices: activeDevicesCount,
         dataSent: devices.reduce((sum, d) => sum + d.packetsSent, 0),
         dataReceived: devices.reduce((sum, d) => sum + d.packetsReceived, 0),
@@ -520,6 +529,9 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
         devices,
         activeDevicesCount // Pass the backend active devices count
       ));
+
+      console
+      // console.log("Updated metrics:", metrics);
 
       setInsights(generateInsights(networkMetrics, devices));
     }
@@ -553,7 +565,7 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
     currentPacketsPerSecond,
     avgArpRate: arpRate,
     activeDevicesCount,
-    totalDevicesCount, 
+    totalDevicesCount,
     isLoading,
     error,
     isConnected,
