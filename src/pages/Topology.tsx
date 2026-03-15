@@ -28,6 +28,7 @@ import RealtimeDataDialog from "@/components/topology/RealtimeDataDialog";
 import { useTopologyData } from "@/hooks/useTopologyData";
 
 interface Device {
+  device_id: string;
   id: string;
   name: string;
   ip: string;
@@ -38,6 +39,7 @@ interface Device {
   firstSeen: string;
   lastSeen: string;
   activityLevel: "low" | "medium" | "high";
+  os: string;
   data_sent: number;
   data_received: number;
   packet_count: number;
@@ -62,140 +64,7 @@ const mockSwitch: NetworkSwitch = {
   y: 300,
 };
 
-const mockDevices: Device[] = [
-  {
-    id: "dev-1",
-    name: "MacBook-Pro-Admin",
-    ip: "192.168.1.15",
-    mac: "00:1B:63:84:45:E6",
-    vendor: "Apple",
-    type: "laptop",
-    status: "active",
-    firstSeen: "2025-01-15 08:30:00",
-    lastSeen: "2 minutes ago",
-    activityLevel: "high",
-  },
-  {
-    id: "dev-2",
-    name: "Galaxy-S24",
-    ip: "192.168.1.23",
-    mac: "5C:F9:DD:5A:12:3F",
-    vendor: "Samsung",
-    type: "mobile",
-    status: "active",
-    firstSeen: "2025-01-20 14:15:00",
-    lastSeen: "5 minutes ago",
-    activityLevel: "medium",
-  },
-  {
-    id: "dev-3",
-    name: "LaserJet-Pro",
-    ip: "192.168.1.45",
-    mac: "00:1E:C9:3A:78:B2",
-    vendor: "HP",
-    type: "printer",
-    status: "idle",
-    firstSeen: "2025-01-10 09:00:00",
-    lastSeen: "1 hour ago",
-    activityLevel: "low",
-  },
-  {
-    id: "dev-4",
-    name: "RaspberryPi-IoT",
-    ip: "192.168.1.67",
-    mac: "B8:27:EB:4C:91:2D",
-    vendor: "Raspberry Pi",
-    type: "iot",
-    status: "active",
-    firstSeen: "2025-01-12 11:20:00",
-    lastSeen: "10 seconds ago",
-    activityLevel: "high",
-  },
-  {
-    id: "dev-5",
-    name: "iPhone-14",
-    ip: "192.168.1.89",
-    mac: "00:1C:B3:09:85:15",
-    vendor: "Apple",
-    type: "mobile",
-    status: "active",
-    firstSeen: "2025-01-18 10:45:00",
-    lastSeen: "3 minutes ago",
-    activityLevel: "medium",
-  },
-  {
-    id: "dev-6",
-    name: "ThinkPad-Lab-02",
-    ip: "192.168.1.102",
-    mac: "54:EE:75:2A:67:D9",
-    vendor: "Lenovo",
-    type: "laptop",
-    status: "idle",
-    firstSeen: "2025-01-08 07:30:00",
-    lastSeen: "2 hours ago",
-    activityLevel: "low",
-  },
-  {
-    id: "dev-7",
-    name: "Canon-Printer",
-    ip: "192.168.1.120",
-    mac: "00:1E:8C:7A:23:F1",
-    vendor: "Canon",
-    type: "printer",
-    status: "offline",
-    firstSeen: "2025-01-05 13:00:00",
-    lastSeen: "1 day ago",
-    activityLevel: "low",
-  },
-  {
-    id: "dev-8",
-    name: "Dell-Workstation",
-    ip: "192.168.1.135",
-    mac: "00:14:22:3B:56:C8",
-    vendor: "Dell",
-    type: "laptop",
-    status: "active",
-    firstSeen: "2025-01-16 09:15:00",
-    lastSeen: "1 minute ago",
-    activityLevel: "high",
-  },
-  {
-    id: "dev-9",
-    name: "iPad-Pro",
-    ip: "192.168.1.156",
-    mac: "00:3E:E1:C8:53:9A",
-    vendor: "Apple",
-    type: "mobile",
-    status: "idle",
-    firstSeen: "2025-01-19 16:20:00",
-    lastSeen: "45 minutes ago",
-    activityLevel: "low",
-  },
-  {
-    id: "dev-10",
-    name: "Smart-Thermostat",
-    ip: "192.168.1.178",
-    mac: "A4:CF:12:8E:42:1D",
-    vendor: "Nest",
-    type: "iot",
-    status: "active",
-    firstSeen: "2025-01-01 00:00:00",
-    lastSeen: "30 seconds ago",
-    activityLevel: "medium",
-  },
-  {
-    id: "dev-11",
-    name: "Office-PC-01",
-    ip: "192.168.1.200",
-    mac: "00:0C:29:3E:5B:7A",
-    vendor: "VMware",
-    type: "laptop",
-    status: "active",
-    firstSeen: "2025-01-03 12:00:00",
-    lastSeen: "2 days ago",
-    activityLevel: "medium",
-  },
-];
+
 
 const calculateDevicePositions = (
   devices: Device[],
@@ -401,7 +270,7 @@ const DeviceDetailsPanel: React.FC<{
           <div>
             <Label className="text-xs text-slate-500">MAC Address</Label>
             <p className="text-sm font-mono text-slate-900 mt-1">
-              {device.mac}
+              {device.device_id}
             </p>
           </div>
 
@@ -635,13 +504,23 @@ const NetworkTopologyPage: React.FC = () => {
   const { devices: realtimeDevices } = useTopologyData(showInactive);
 
   const positionedDevices = calculateDevicePositions(
-  realtimeDevices,
-  400,
-  300,
-  200
-);
+    realtimeDevices,
+    400,
+    300,
+    200
+  );
 
-  console.log("Data received for topology:", positionedDevices);
+  useEffect(() => {
+    console.log("Positioned devices updated:", realtimeDevices);
+
+    if(selectedDevice !== null) {
+      const updatedSelected = realtimeDevices.find(d => d.id === selectedDevice.id);
+      if(updatedSelected) {
+        setSelectedDevice(updatedSelected);
+      }
+    }
+
+  }, [realtimeDevices]);
 
   const handleDeviceClick = (device: Device) => {
     setSelectedDevice(device);
