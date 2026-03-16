@@ -4,6 +4,7 @@ import MainLayout from './layouts/MainLayout';
 import NetworkTopologyPage from './pages/Topology';
 import NetworkActivityPage from './pages/NetworkActivity';
 import IPAddressManagement from './pages/IPAddressManagement';
+import Reports from './pages/Reports';
 
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
           <Route path="/topological-view" element={<NetworkTopologyPage />} />
           <Route path="/network-activity" element={<NetworkActivityPage />} />
           <Route path="/ip-management" element={<IPAddressManagement />} />
+          <Route path="/reports" element={<Reports />} />
         </Route>
       </Routes>
     </BrowserRouter>
