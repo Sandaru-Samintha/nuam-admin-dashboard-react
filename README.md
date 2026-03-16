@@ -210,14 +210,15 @@ Demo video: Add your URL here (YouTube/Drive/etc.)
 ## Contributors
 | Name | Role | Responsibilities |
 |------|------|------------------|
-| Add member 1 | Frontend Developer | UI components, pages, UX |
-| Add member 2 | Backend/Integration | API and WebSocket integration |
-| Add member 3 | QA/Documentation | Testing, documentation, reporting |
+| Naveen Hettiwaththa | Fullstack Developer | UI components, pages, UX |
+| Sandaru Samintha | Frontend Developer | API and WebSocket integration |
+| Ravindu Peshan | Fullstack Developer | Testing, API and WebSocket integration |
+| Kaveesha Vihangi | Frontend Developer | Testing, API and WebSocket integration |
 
 ## Contact Information
-- Name: Add your name
-- Email: your.email@example.com
-- Institution: Add institution/organization name
+- Name: Naveen Hettiwaththa
+- Email: naveenhettiwaththa@gmail.com
+- Institution: University Of Jaffna
 
 ## License
 This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for the full text.
