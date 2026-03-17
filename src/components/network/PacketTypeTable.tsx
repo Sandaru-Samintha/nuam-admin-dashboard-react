@@ -1,7 +1,8 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import type { NetworkMetrics } from '@/hooks/useNetworkActivityPageData';
 import { ArrowUpDown, Radio, Wifi, GitMerge, GitFork, Globe, Server, Mail, Shield, Activity, Network, FileText, Lock } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface PacketDetails {
   packetType: string;
@@ -16,21 +17,7 @@ interface PacketTypeTableProps {
   packetDetails: PacketDetails[];
   totalPackets: number;
   currentPacketsPerSecond: number;
-  metrics?: {
-    total_broadcast_packets: number;
-    total_unicast_packets: number;
-    arp_requests: number;
-    arp_replies: number;
-    ip_packets: number;
-    tcp_packets: number;
-    udp_packets: number;
-    icmp_packets: number;
-    dns_queries: number;
-    dhcp_packets: number;
-    http_requests: number;
-    tls_handshakes: number;
-    total_packets: number;
-  };
+  metrics?: NetworkMetrics
 }
 
 // Helper function to format numbers
@@ -132,21 +119,25 @@ const PacketTypeTable: React.FC<PacketTypeTableProps> = ({
     return packetCount / 10;
   };
 
+  useEffect(() => {
+    console.log("metrics are : ====== > " , metrics);
+  }, [metrics])
+
   // Safe access to metrics with default values
   const safeMetrics = {
-    total_broadcast_packets: metrics?.total_broadcast_packets ?? 0,
-    total_unicast_packets: metrics?.total_unicast_packets ?? 0,
-    arp_requests: metrics?.arp_requests ?? 0,
-    arp_replies: metrics?.arp_replies ?? 0,
-    ip_packets: metrics?.ip_packets ?? 0,
-    tcp_packets: metrics?.tcp_packets ?? 0,
-    udp_packets: metrics?.udp_packets ?? 0,
-    icmp_packets: metrics?.icmp_packets ?? 0,
-    dns_queries: metrics?.dns_queries ?? 0,
-    dhcp_packets: metrics?.dhcp_packets ?? 0,
-    http_requests: metrics?.http_requests ?? 0,
-    tls_handshakes: metrics?.tls_handshakes ?? 0,
-    total_packets: metrics?.total_packets ?? totalPackets,
+    total_broadcast_packets: metrics?.broadcastPackets ?? 0,
+    total_unicast_packets: metrics?.unicastPackets ?? 0,
+    arp_requests: metrics?.arpRequests ?? 0,
+    arp_replies: metrics?.arpReplies ?? 0,
+    ip_packets: metrics?.ipPackets ?? 0,
+    tcp_packets: metrics?.tcpPackets ?? 0,
+    udp_packets: metrics?.udpPackets ?? 0,
+    icmp_packets: metrics?.icmpPackets ?? 0,
+    dns_queries: metrics?.dnsQueries ?? 0,
+    dhcp_packets: metrics?.dhcpPackets ?? 0,
+    http_requests: metrics?.httpRequests ?? 0,
+    tls_handshakes: metrics?.tlsHandshakes ?? 0,
+    total_packets: 0,
   };
 
   // Helper function to get packet count from either metrics or initialPacketDetails

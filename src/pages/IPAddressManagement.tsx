@@ -29,12 +29,6 @@ import {
 
 import { useIpAddressManagement } from "@/hooks/useIpAddressManagement";
 
-import { useIpAddressManagement } from "@/hooks/useIpAddressManagement"
-
-// ============================================================================
-// TYPE DEFINITIONS
-// ============================================================================
-
 interface IPDevice {
   id: string;
   ipAddress: string;

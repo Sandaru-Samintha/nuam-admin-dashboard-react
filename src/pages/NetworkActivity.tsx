@@ -20,6 +20,7 @@ import DeviceActivityTable from '@/components/network/DeviceActivityTable';
 import ActivityEventFeed from '@/components/network/ActivityEventFeed';
 import InsightsPanel from '@/components/network/InsightsPanel';
 import PacketTypeTable from '@/components/network/PacketTypeTable'; // Add this import
+import ProtocolPacketRateChart from '@/components/network/ProtocolPacketRateChart';
 
 // Main Network Activity Page Component
 const NetworkActivityPage: React.FC = () => {
@@ -38,27 +39,46 @@ const NetworkActivityPage: React.FC = () => {
     avgArpRate,
     activeDevicesCount,
     packetDetails, // Make sure this is exposed from your hook
-    totalPacketsCount,
     isLoading,
     error,
     isConnected,
-    refreshData
+    refreshData,
+    metricSnapshot,
+    protocolPpsData
   } = useNetworkActivityPageData(timeRange);
 
   // Calculate total packets from packet details
   const totalPackets = packetDetails?.reduce((sum, detail) => sum + detail.totalPackets, 0) || 0;
 
-  // Get metrics for advanced packet types
-  const packetMetrics = trafficData.length > 0 ? {
-    ip_packets: trafficData.reduce((sum, d) => sum + (d.arpRequests + d.arpReplies), 0), // Example calculation
-    tcp_packets: 0, // These would come from your actual data
-    udp_packets: 0,
-    icmp_packets: 0,
-    dns_queries: 0,
-    dhcp_packets: 0,
-    http_requests: 0,
-    tls_handshakes: 0
-  } : undefined;
+  const ipPacketsPpsData = protocolPpsData.map((point) => ({
+    time: point.time,
+    value: point.ipPacketsPerSecond
+  }));
+
+  const icmpPacketsPpsData = protocolPpsData.map((point) => ({
+    time: point.time,
+    value: point.icmpPacketsPerSecond
+  }));
+
+  const tcpPacketsPpsData = protocolPpsData.map((point) => ({
+    time: point.time,
+    value: point.tcpPacketsPerSecond
+  }));
+
+  const udpPacketsPpsData = protocolPpsData.map((point) => ({
+    time: point.time,
+    value: point.udpPacketsPerSecond
+  }));
+
+  const dnsQueriesPpsData = protocolPpsData.map((point) => ({
+    time: point.time,
+    value: point.dnsQueriesPerSecond
+  }));
+
+  const dhcpPacketsPpsData = protocolPpsData.map((point) => ({
+    time: point.time,
+    value: point.dhcpPacketsPerSecond
+  }));
 
   // Update last updated timestamp when data changes
   useEffect(() => {
@@ -68,22 +88,26 @@ const NetworkActivityPage: React.FC = () => {
   }, [trafficData, devices, events, isLoading]);
 
   // Add icons to events and limit to most recent 100 for pagination
-  const eventsWithIcons = events.slice(0, 100).map(event => ({
-    ...event,
-    icon: event.type === 'active' ? <CheckCircle2 className="h-4 w-4 text-green-600" /> :
-          event.type === 'spike' ? <TrendingUp className="h-4 w-4 text-blue-600" /> :
-          event.type === 'idle' ? <AlertCircle className="h-4 w-4 text-yellow-600" /> :
-          event.type === 'load_change' ? <Activity className="h-4 w-4 text-purple-600" /> :
-          <Activity className="h-4 w-4 text-slate-600" />,
-    // Add ARP rate to load_change events
-    ...(event.type === 'load_change' && {
-      arpRate: {
-        value: `${avgArpRate}/min`,
-        trend: avgArpRate > 100 ? 'up' : avgArpRate < 40 ? 'down' : 'stable',
-        trendValue: avgArpRate > 100 ? 'High' : avgArpRate < 40 ? 'Low' : 'Normal'
-      }
-    })
-  }));
+  const eventsWithIcons = events.slice(0, 100).map(event => {
+    const arpTrend: 'up' | 'down' | 'stable' = avgArpRate > 100 ? 'up' : avgArpRate < 40 ? 'down' : 'stable';
+
+    return {
+      ...event,
+      icon: event.type === 'active' ? <CheckCircle2 className="h-4 w-4 text-green-600" /> :
+            event.type === 'spike' ? <TrendingUp className="h-4 w-4 text-blue-600" /> :
+            event.type === 'idle' ? <AlertCircle className="h-4 w-4 text-yellow-600" /> :
+            event.type === 'load_change' ? <Activity className="h-4 w-4 text-purple-600" /> :
+            <Activity className="h-4 w-4 text-slate-600" />,
+      // Add ARP rate to load_change events
+      ...(event.type === 'load_change' && {
+        arpRate: {
+          value: `${avgArpRate}/min`,
+          trend: arpTrend,
+          trendValue: avgArpRate > 100 ? 'High' : avgArpRate < 40 ? 'Low' : 'Normal'
+        }
+      })
+    };
+  });
 
   // Handle refresh button click
   const handleRefresh = () => {
@@ -140,7 +164,7 @@ const NetworkActivityPage: React.FC = () => {
       {/* Connection Status Banner */}
       {!isConnected && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center gap-3">
-          <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
+          <AlertCircle className="h-5 w-5 text-yellow-600 shrink-0" />
           <div className="flex-1">
             <p className="text-sm font-medium text-yellow-800">
               Using mock data - Real-time connection unavailable
@@ -163,7 +187,7 @@ const NetworkActivityPage: React.FC = () => {
       {/* Error Banner */}
       {error && isConnected && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-          <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+          <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
           <div className="flex-1">
             <p className="text-sm font-medium text-red-800">Error loading data</p>
             <p className="text-xs text-red-700 mt-1">{error}</p>
@@ -209,12 +233,51 @@ const NetworkActivityPage: React.FC = () => {
       {/* ARP Activity Chart */}
       <ARPActivityChart data={trafficData} />
 
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <ProtocolPacketRateChart
+          title="IP Packets / Sec"
+          description="IP packet throughput"
+          color="#4f46e5"
+          data={ipPacketsPpsData}
+        />
+        <ProtocolPacketRateChart
+          title="ICMP Packets / Sec"
+          description="ICMP packet throughput"
+          color="#e11d48"
+          data={icmpPacketsPpsData}
+        />
+        <ProtocolPacketRateChart
+          title="TCP Packets / Sec"
+          description="TCP packet throughput"
+          color="#0891b2"
+          data={tcpPacketsPpsData}
+        />
+        <ProtocolPacketRateChart
+          title="UDP Packets / Sec"
+          description="UDP packet throughput"
+          color="#0f766e"
+          data={udpPacketsPpsData}
+        />
+        <ProtocolPacketRateChart
+          title="DNS Queries / Sec"
+          description="DNS query rate"
+          color="#7c3aed"
+          data={dnsQueriesPpsData}
+        />
+        <ProtocolPacketRateChart
+          title="DHCP Packets / Sec"
+          description="DHCP packet rate"
+          color="#ea580c"
+          data={dhcpPacketsPpsData}
+        />
+      </div>
+
       {/* Packet Type Distribution Table - This will show above Device Activity */}
       <PacketTypeTable 
         packetDetails={packetDetails || []}
         totalPackets={totalPackets}
         currentPacketsPerSecond={currentPacketsPerSecond}
-        metrics={packetMetrics}
+        metrics={metricSnapshot ?? undefined}
       />
 
       {/* Device Activity Table */}

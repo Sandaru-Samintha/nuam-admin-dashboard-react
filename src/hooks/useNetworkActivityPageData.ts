@@ -66,6 +66,14 @@ export interface NetworkMetrics {
   unicastPackets: number;
   arpRequests: number;
   arpReplies: number;
+  dhcpPackets: number;
+  dnsQueries: number;
+  httpRequests: number;
+  tlsHandshakes: number;
+  tcpPackets: number;
+  udpPackets: number;
+  icmpPackets: number;
+  ipPackets: number;
 }
 
 
@@ -82,6 +90,66 @@ export interface PacketTypeData {
   count: number;
   rate: number;
 }
+
+export interface ProtocolPpsPoint {
+  time: string;
+  ipPacketsPerSecond: number;
+  tcpPacketsPerSecond: number;
+  icmpPacketsPerSecond: number;
+  udpPacketsPerSecond: number;
+  dnsQueriesPerSecond: number;
+  dhcpPacketsPerSecond: number;
+}
+
+const safeTimestampMs = (...values: Array<unknown>): number => {
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+    const parsed = new Date(value as string | number | Date).getTime();
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return Date.now();
+};
+
+const calculateRatePerSecond = (
+  currentValue: number,
+  previousValue: number | null,
+  elapsedSeconds: number
+): number => {
+  if (elapsedSeconds <= 0) return 0;
+
+  if (previousValue === null) {
+    return Number((currentValue / elapsedSeconds).toFixed(2));
+  }
+
+  const delta = currentValue - previousValue;
+
+  // Support both cumulative counters and interval counters from backend.
+  const normalized = delta >= 0 ? delta : currentValue;
+
+  return Number((normalized / elapsedSeconds).toFixed(2));
+};
+
+const normalizeElapsedSeconds = (value: number): number => {
+  if (!Number.isFinite(value) || value <= 0) return 1;
+  // Metric events are expected to be periodic; very large gaps usually indicate bad timestamp input.
+  if (value > 60) return 5;
+  return value;
+};
+
+const asNumber = (value: unknown): number => {
+  const num = Number(value ?? 0);
+  return Number.isFinite(num) ? num : 0;
+};
+
+const getMetricValue = (source: Record<string, unknown>, keys: string[]): number => {
+  for (const key of keys) {
+    const value = source[key];
+    if (value !== null && value !== undefined) {
+      return asNumber(value);
+    }
+  }
+  return 0;
+};
 
 // Add this helper function:
 const formatDataRate = (bytesPerSec: number): string => {
@@ -116,7 +184,7 @@ const calculatePacketDetails = (
   },
   timeDiffSec: number = 1
 ): PacketDetails[] => {
-  
+
   const calculateRate = (current: number, previous?: number): number => {
     if (!previous || timeDiffSec <= 0) return 0;
     const delta = Math.max(0, current - previous);
@@ -164,11 +232,11 @@ const calculatePacketDetails = (
 };
 
 // Helper to determine activity level based on packet count
-const determineActivityLevel = (packetsSent: number, packetsReceived: number,dataSent?: number, dataReceived?: number )
-: 'low' | 'medium' | 'high' => {
+const determineActivityLevel = (packetsSent: number, packetsReceived: number, dataSent?: number, dataReceived?: number)
+  : 'low' | 'medium' | 'high' => {
   const totalPackets = packetsSent + packetsReceived;
   const totalData = (dataSent || 0) + (dataReceived || 0);
-   if (totalPackets > 50000 || totalData > 10000000) return 'high';
+  if (totalPackets > 50000 || totalData > 10000000) return 'high';
   if (totalPackets > 10000 || totalData > 1000000) return 'medium';
   return 'low';
 };
@@ -279,18 +347,26 @@ export const useNetworkActivityPageData = (timeRange: string = '1h') => {
   const [isConnected, setIsConnected] = useState(false);
   const [currentDataRate, setCurrentDataRate] = useState<number>(0);
   const [packetDetails, setPacketDetails] = useState<PacketDetails[]>([]);
-const [packetTypeBreakdown, setPacketTypeBreakdown] = useState<PacketTypeData[]>([]);
+  const [packetTypeBreakdown, setPacketTypeBreakdown] = useState<PacketTypeData[]>([]);
+  const [metricSnapshot, setMetricSnapshot] = useState<NetworkMetrics | null>(null);
+  const [protocolPpsData, setProtocolPpsData] = useState<ProtocolPpsPoint[]>([]);
+  const [measureTimestamp, setMeasureTimestamp] = useState<number>(0);
 
 
-// Add this ref to track packet history
-const packetHistoryRef = useRef<{
-  timestamp: number;
-  broadcastPackets: number;
-  unicastPackets: number;
-  arpRequests: number;
-  arpReplies: number;
-  totalPackets: number;
-}[]>([]);
+  useEffect(() => {
+    console.log("metricSnapshot updated:", metricSnapshot);
+  }, [metricSnapshot])
+
+
+  // Add this ref to track packet history
+  const packetHistoryRef = useRef<{
+    timestamp: number;
+    broadcastPackets: number;
+    unicastPackets: number;
+    arpRequests: number;
+    arpReplies: number;
+    totalPackets: number;
+  }[]>([]);
 
   // Track previous metric for rate calculations
   const prevMetricsRef = useRef<{
@@ -302,10 +378,10 @@ const packetHistoryRef = useRef<{
   } | null>(null);
 
   const prevDataRef = useRef<{
-  timestamp: number;
-  dataSent: number;
-  dataReceived: number;
-} | null>(null);
+    timestamp: number;
+    dataSent: number;
+    dataReceived: number;
+  } | null>(null);
 
   // Track previous ARP for rate calculation
   const prevArpRef = useRef<{
@@ -314,6 +390,16 @@ const packetHistoryRef = useRef<{
   } | null>(null);
 
   const trafficHistoryRef = useRef<TrafficDataPoint[]>([]);
+  const protocolPpsHistoryRef = useRef<ProtocolPpsPoint[]>([]);
+  const prevProtocolTotalsRef = useRef<{
+    timestamp: number;
+    ipPackets: number;
+    tcpPackets: number;
+    icmpPackets: number;
+    udpPackets: number;
+    dnsQueries: number;
+    dhcpPackets: number;
+  } | null>(null);
   const maxHistoryPoints = timeRange === '5m' ? 5 : timeRange === '1h' ? 12 : 24;
 
   // Calculate metrics cards from raw data
@@ -408,8 +494,8 @@ const packetHistoryRef = useRef<{
         description: 'Current network throughput',
         icon: undefined,
         trend: currentDataRate > 1000000 ? 'up' : currentDataRate < 100000 ? 'down' : 'stable',
-        trendValue: currentDataRate > 1000000 ? 'High bandwidth' : 
-                    currentDataRate < 100000 ? 'Low bandwidth' : 'Normal'
+        trendValue: currentDataRate > 1000000 ? 'High bandwidth' :
+          currentDataRate < 100000 ? 'Low bandwidth' : 'Normal'
       }
     ];
   }, []);
@@ -418,6 +504,11 @@ const packetHistoryRef = useRef<{
   const updateTrafficHistory = useCallback((dataPoint: TrafficDataPoint) => {
     trafficHistoryRef.current = [...trafficHistoryRef.current, dataPoint].slice(-maxHistoryPoints);
     setTrafficData(trafficHistoryRef.current);
+  }, [maxHistoryPoints]);
+
+  const updateProtocolPpsHistory = useCallback((dataPoint: ProtocolPpsPoint) => {
+    protocolPpsHistoryRef.current = [...protocolPpsHistoryRef.current, dataPoint].slice(-maxHistoryPoints);
+    setProtocolPpsData(protocolPpsHistoryRef.current);
   }, [maxHistoryPoints]);
 
   useEffect(() => {
@@ -485,20 +576,103 @@ const packetHistoryRef = useRef<{
       // Handle METRIC updates
       if (data.event?.type === "METRIC" && data.event?.subtype === "PERIODIC_METRIC_STATE") {
         const m = data.event.payload.metrics;
-        const metricTime = new Date(m.measure_time || data.event.meta.timestamp).getTime();
+        const metricTime = safeTimestampMs(m.measure_time, data.event?.meta?.timestamp, Date.now());
+        const metricTimeLabel = new Date(metricTime).toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
         console.log("Received metric event:", m.measure_time, data.event.meta.timestamp, metricTime);
-
+        setMeasureTimestamp(metricTime);
 
         const networkMetrics: NetworkMetrics = {
-          totalDevices: m.total_devices || 0,
-          activeDevices: m.active_devices || 0,
-          dataSent: m.data_sent || 0,
-          dataReceived: m.data_received || 0,
-          broadcastPackets: m.total_broadcast_packets || 0,
-          unicastPackets: m.total_unicast_packets || 0,
-          arpRequests: m.arp_requests || 0,
-          arpReplies: m.arp_replies || 0,
+          totalDevices: getMetricValue(m, ['total_devices', 'totalDevices']),
+          activeDevices: getMetricValue(m, ['active_devices', 'activeDevices']),
+          dataSent: getMetricValue(m, ['data_sent', 'dataSent']),
+          dataReceived: getMetricValue(m, ['data_received', 'dataReceived']),
+          broadcastPackets: getMetricValue(m, ['total_broadcast_packets', 'broadcast_packets', 'totalBroadcastPackets', 'broadcastPackets']),
+          unicastPackets: getMetricValue(m, ['total_unicast_packets', 'unicast_packets', 'totalUnicastPackets', 'unicastPackets']),
+          arpRequests: getMetricValue(m, ['arp_requests', 'total_arp_requests', 'arpRequests', 'totalArpRequests']),
+          arpReplies: getMetricValue(m, ['arp_replies', 'total_arp_replies', 'arpReplies', 'totalArpReplies']),
+          tcpPackets: getMetricValue(m, ['tcp_packets', 'total_tcp_packets', 'tcpPackets', 'totalTcpPackets']),
+          udpPackets: getMetricValue(m, ['udp_packets', 'total_udp_packets', 'udpPackets', 'totalUdpPackets']),
+          icmpPackets: getMetricValue(m, ['icmp_packets', 'total_icmp_packets', 'icmpPackets', 'totalIcmpPackets']),
+          ipPackets: getMetricValue(m, ['ip_packets', 'total_ip_packets', 'ipPackets', 'totalIpPackets']),
+          dnsQueries: getMetricValue(m, ['dns_queries', 'total_dns_queries', 'dnsQueries', 'totalDnsQueries']),
+          dhcpPackets: getMetricValue(m, ['dhcp_packets', 'total_dhcp_packets', 'dhcpPackets', 'totalDhcpPackets']),
+          httpRequests: getMetricValue(m, ['http_requests', 'total_http_requests', 'httpRequests', 'totalHttpRequests']),
+          tlsHandshakes: getMetricValue(m, ['tls_handshakes', 'total_tls_handshakes', 'tlsHandshakes', 'totalTlsHandshakes'])
         };
+
+        setMetricSnapshot(networkMetrics);
+
+        let ipPacketsPerSecond = 0;
+        let tcpPacketsPerSecond = 0;
+        let icmpPacketsPerSecond = 0;
+        let udpPacketsPerSecond = 0;
+        let dnsQueriesPerSecond = 0;
+        let dhcpPacketsPerSecond = 0;
+
+        let protocolTimestamp = metricTime;
+        if (prevProtocolTotalsRef.current && protocolTimestamp <= prevProtocolTotalsRef.current.timestamp) {
+          protocolTimestamp = Date.now();
+        }
+
+        if (prevProtocolTotalsRef.current) {
+          const protocolTimeDiffSec = normalizeElapsedSeconds(
+            (protocolTimestamp - prevProtocolTotalsRef.current.timestamp) / 1000
+          );
+
+          ipPacketsPerSecond = calculateRatePerSecond(
+            networkMetrics.ipPackets,
+            prevProtocolTotalsRef.current.ipPackets,
+            protocolTimeDiffSec
+          );
+          tcpPacketsPerSecond = calculateRatePerSecond(
+            networkMetrics.tcpPackets,
+            prevProtocolTotalsRef.current.tcpPackets,
+            protocolTimeDiffSec
+          );
+          icmpPacketsPerSecond = calculateRatePerSecond(
+            networkMetrics.icmpPackets,
+            prevProtocolTotalsRef.current.icmpPackets,
+            protocolTimeDiffSec
+          );
+          udpPacketsPerSecond = calculateRatePerSecond(
+            networkMetrics.udpPackets,
+            prevProtocolTotalsRef.current.udpPackets,
+            protocolTimeDiffSec
+          );
+          dnsQueriesPerSecond = calculateRatePerSecond(
+            networkMetrics.dnsQueries,
+            prevProtocolTotalsRef.current.dnsQueries,
+            protocolTimeDiffSec
+          );
+          dhcpPacketsPerSecond = calculateRatePerSecond(
+            networkMetrics.dhcpPackets,
+            prevProtocolTotalsRef.current.dhcpPackets,
+            protocolTimeDiffSec
+          );
+        }
+
+        prevProtocolTotalsRef.current = {
+          timestamp: protocolTimestamp,
+          ipPackets: networkMetrics.ipPackets,
+          tcpPackets: networkMetrics.tcpPackets,
+          icmpPackets: networkMetrics.icmpPackets,
+          udpPackets: networkMetrics.udpPackets,
+          dnsQueries: networkMetrics.dnsQueries,
+          dhcpPackets: networkMetrics.dhcpPackets
+        };
+
+        updateProtocolPpsHistory({
+          time: metricTimeLabel,
+          ipPacketsPerSecond,
+          tcpPacketsPerSecond,
+          icmpPacketsPerSecond,
+          udpPacketsPerSecond,
+          dnsQueriesPerSecond,
+          dhcpPacketsPerSecond
+        });
 
         // Update distribution
         setDistribution({
@@ -513,36 +687,36 @@ const packetHistoryRef = useRef<{
 
 
         if (data.topology?.devices) {
-        const incomingDevices = data.topology.devices.map((d: any) => ({
-          id: d.id?.toString() || d.device_id || d.mac_address,
-          name: d.name || d.hostname || "Unknown",
-          ip: d.ip || d.ip_address || "-",
-          device_id: d.device_id || "-",
-          vendor: d.vendor || "-",
-          type: mapDeviceType(d.type || d.device_type || "unknown"),
-          packetsSent: d.data_sent || d.packets_sent || 0,  
-          packetsReceived: d.data_received || d.packets_received || 0,
-          activityLevel: determineActivityLevel(
-            d.data_sent || d.packets_sent || 0,
-            d.data_received || d.packets_received || 0
-          ),
-          lastSeen: new Date().toISOString(),
-          lastActive: 'Just now'
-        }));
+          const incomingDevices = data.topology.devices.map((d: any) => ({
+            id: d.id?.toString() || d.device_id || d.mac_address,
+            name: d.name || d.hostname || "Unknown",
+            ip: d.ip || d.ip_address || "-",
+            device_id: d.device_id || "-",
+            vendor: d.vendor || "-",
+            type: mapDeviceType(d.type || d.device_type || "unknown"),
+            packetsSent: d.data_sent || d.packets_sent || 0,
+            packetsReceived: d.data_received || d.packets_received || 0,
+            activityLevel: determineActivityLevel(
+              d.data_sent || d.packets_sent || 0,
+              d.data_received || d.packets_received || 0
+            ),
+            lastSeen: new Date().toISOString(),
+            lastActive: 'Just now'
+          }));
 
-        setDevices(prev => {
-          const updated = [...prev];
-          incomingDevices.forEach((device: DeviceActivity) => {
-            const index = updated.findIndex(d => d.id === device.id);
-            if (index >= 0) {
-              updated[index] = { ...updated[index], ...device };
-            } else {
-              updated.unshift(device);
-            }
+          setDevices(prev => {
+            const updated = [...prev];
+            incomingDevices.forEach((device: DeviceActivity) => {
+              const index = updated.findIndex(d => d.id === device.id);
+              if (index >= 0) {
+                updated[index] = { ...updated[index], ...device };
+              } else {
+                updated.unshift(device);
+              }
+            });
+            return updated.slice(0, 100);
           });
-          return updated.slice(0, 100);
-        });
-      }
+        }
 
 
 
@@ -550,29 +724,24 @@ const packetHistoryRef = useRef<{
         let packetsPerSecond = 0;
 
         if (prevMetricsRef.current) {
-          const timeDiffMs = Date.now()- prevMetricsRef.current.timestamp ;
-          const timeDiffSec = timeDiffMs / 1000;
+          const rawDiffSec = (metricTime - prevMetricsRef.current.timestamp) / 1000;
+          const timeDiffSec = normalizeElapsedSeconds(rawDiffSec);
+          const currentTotalPackets = asNumber(m.total_packets ?? m.total_ip_packets ?? m.ip_packets);
 
-          if (timeDiffSec > 0) {
-            console.log("packet", m.total_packets)
-            const currentTotalPackets = m.total_packets || 0;
-            // Ensure we don't get negative values due to counter resets
-            if (currentTotalPackets >= 0) {
-              packetsPerSecond = Number((currentTotalPackets/ timeDiffSec).toFixed(2));
-            } else {
-              // Handle counter reset (packets counter might have reset)
-              packetsPerSecond = 0;
-            }
-            
-            setCurrentPacketsPerSecond(packetsPerSecond);
-          }
+          packetsPerSecond = calculateRatePerSecond(
+            currentTotalPackets,
+            prevMetricsRef.current.packets,
+            timeDiffSec
+          );
+
+          setCurrentPacketsPerSecond(packetsPerSecond);
         }
 
         // Calculate data rate
         if (prevDataRef.current) {
           const timeDiffMs = Date.now() - prevDataRef.current.timestamp;
           const timeDiffSec = timeDiffMs / 1000;
-          
+
           if (timeDiffSec > 0) {
             const dataSentDelta = networkMetrics.dataSent - prevDataRef.current.dataSent;
             const dataReceivedDelta = networkMetrics.dataReceived - prevDataRef.current.dataReceived;
@@ -591,10 +760,13 @@ const packetHistoryRef = useRef<{
 
         // Calculate ARP rate
         if (prevArpRef.current) {
-          const timeDiffMs = new Date().getTime() - new Date(m.measure_time || data.event.meta.timestamp).getTime();
-          const timeDiffMins = timeDiffMs / (1000 * 60);
-          const rate = timeDiffMins > 0 ? networkMetrics.arpRequests / timeDiffMins : 0;
-          setArpRate(Math.round(rate));
+          const arpDiffSec = normalizeElapsedSeconds((metricTime - prevArpRef.current.timestamp) / 1000);
+          const arpPerSecond = calculateRatePerSecond(
+            networkMetrics.arpRequests,
+            prevArpRef.current.arpRequests,
+            arpDiffSec
+          );
+          setArpRate(Math.round(arpPerSecond * 60));
         }
 
         // Update prevArpRef for next calculation
@@ -606,7 +778,7 @@ const packetHistoryRef = useRef<{
         prevMetricsRef.current = {
           timestamp: metricTime,
           arpRequests: networkMetrics.arpRequests,
-          packets: m.total_packets,
+          packets: asNumber(m.total_packets ?? m.total_ip_packets ?? m.ip_packets),
           broadcastPackets: networkMetrics.broadcastPackets,
           unicastPackets: networkMetrics.unicastPackets
         };
@@ -633,7 +805,7 @@ const packetHistoryRef = useRef<{
         } : undefined;
 
         // Calculate time difference for rates
-        const timeDiffSec = prevMetricsRef.current ? 
+        const timeDiffSec = prevMetricsRef.current ?
           (metricTime - prevMetricsRef.current.timestamp) / 1000 : 1;
 
         const newPacketDetails = calculatePacketDetails(
@@ -661,10 +833,7 @@ const packetHistoryRef = useRef<{
 
         // Add traffic data point
         const trafficPoint: TrafficDataPoint = {
-          time: new Date(m.measure_time || data.event.meta.timestamp).toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit'
-          }),
+          time: metricTimeLabel,
           packets: networkMetrics.broadcastPackets + networkMetrics.unicastPackets,
           arpRequests: networkMetrics.arpRequests,
           arpReplies: networkMetrics.arpReplies
@@ -696,7 +865,7 @@ const packetHistoryRef = useRef<{
     });
 
     return () => disconnectWebSocket();
-  }, [timeRange, updateTrafficHistory]);
+  }, [timeRange, updateTrafficHistory, updateProtocolPpsHistory]);
 
   // Separate effect to update metrics and insights when dependencies change
   useEffect(() => {
@@ -709,7 +878,15 @@ const packetHistoryRef = useRef<{
         broadcastPackets: distribution.broadcast,
         unicastPackets: distribution.unicast,
         arpRequests: trafficData.length > 0 ? trafficData[trafficData.length - 1]?.arpRequests || 0 : 0,
-        arpReplies: trafficData.length > 0 ? trafficData[trafficData.length - 1]?.arpReplies || 0 : 0
+        arpReplies: trafficData.length > 0 ? trafficData[trafficData.length - 1]?.arpReplies || 0 : 0,
+        tcpPackets: metricSnapshot?.tcpPackets || 0,
+        udpPackets: metricSnapshot?.udpPackets || 0,
+        icmpPackets: metricSnapshot?.icmpPackets || 0,
+        ipPackets: metricSnapshot?.ipPackets || 0,
+        dnsQueries: metricSnapshot?.dnsQueries || 0,
+        dhcpPackets: metricSnapshot?.dhcpPackets || 0,
+        httpRequests: metricSnapshot?.httpRequests || 0,
+        tlsHandshakes: metricSnapshot?.tlsHandshakes || 0
       };
 
       setMetrics(calculateMetricsCards(
@@ -717,11 +894,8 @@ const packetHistoryRef = useRef<{
         currentPacketsPerSecond,
         arpRate,
         devices,
-        activeDevicesCount // Pass the backend active devices count
+        activeDevicesCount
       ));
-
-      console
-      // console.log("Updated metrics:", metrics);
 
       setInsights(generateInsights(networkMetrics, devices));
     }
@@ -748,19 +922,22 @@ const packetHistoryRef = useRef<{
 
   return {
     metrics,
-  trafficData,
-  devices,
-  events,
-  distribution,
-  insights,
-  currentPacketsPerSecond,
-  avgArpRate: arpRate,
-  activeDevicesCount,
-  totalDevicesCount,
-  isLoading,
-  error,
-  isConnected,
-  refreshData,
-  packetDetails,
+    trafficData,
+    devices,
+    events,
+    distribution,
+    insights,
+    currentPacketsPerSecond,
+    avgArpRate: arpRate,
+    activeDevicesCount,
+    totalDevicesCount,
+    isLoading,
+    error,
+    isConnected,
+    refreshData,
+    packetDetails,
+    metricSnapshot,
+    protocolPpsData,
+    measureTimestamp
   };
 };
