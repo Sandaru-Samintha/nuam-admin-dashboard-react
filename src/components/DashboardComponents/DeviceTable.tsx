@@ -14,14 +14,15 @@ export interface Device {
   ip: string;
   mac: string;
   vendor: string;
+  os: string;
   type: string;
-  status: "active" | "idle";
+  status: "active" | "idle" | "offline";
   lastSeen: string;
 }
 
 interface DeviceTableProps {
   devices: Device[];
-  pageSize?: number; // number of devices per page
+  pageSize?: number;
 }
 
 const DeviceTable: React.FC<DeviceTableProps> = ({ devices, pageSize = 8 }) => {
@@ -70,6 +71,9 @@ const DeviceTable: React.FC<DeviceTableProps> = ({ devices, pageSize = 8 }) => {
                   Type
                 </th> */}
                 <th className="text-left py-3 px-4 text-sm font-medium text-slate-600">
+                  OS
+                </th>
+                <th className="text-left py-3 px-4 text-sm font-medium text-slate-600">
                   Status
                 </th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-slate-600">
@@ -103,6 +107,9 @@ const DeviceTable: React.FC<DeviceTableProps> = ({ devices, pageSize = 8 }) => {
                   <td className="py-3 px-4 text-sm text-slate-600">
                     {device.os}
 >>>>>>> Stashed changes
+                  </td>
+                  <td className="py-3 px-4 text-sm text-slate-600">
+                    {device.os}
                   </td>
                   <td className="py-3 px-4">
                     <Badge

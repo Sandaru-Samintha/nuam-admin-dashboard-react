@@ -13,8 +13,9 @@ export interface Device {
   ip: string;
   mac: string;
   vendor: string;
+  os: string;
   type: string;
-  status: "active" | "idle";
+  status: "active" | "idle" | "offline";
   lastSeen: string;
 }
 
@@ -69,6 +70,7 @@ export const useDashboardData = () => {
   useEffect(() => {
     connectWebSocket((data: any) => {
       setIsConnected(true);
+      console.log("Received dashboard data:", data);
 
       // DEVICE_JOINED
       if (
@@ -85,6 +87,7 @@ export const useDashboardData = () => {
                 {
                   ...device,
                   status: "active",
+                  os: "Unknown",
                   lastSeen: new Date().toISOString(),
                 },
                 ...prev,
@@ -105,7 +108,7 @@ export const useDashboardData = () => {
         setDevices((prev) =>
           prev.map((d) =>
             d.id === deviceId
-              ? { ...d, status: "idle", lastSeen: new Date().toISOString() }
+              ? { ...d, status: "offline", lastSeen: new Date().toISOString() }
               : d,
           ),
         );
@@ -123,20 +126,18 @@ export const useDashboardData = () => {
           m.measure_time || data.event.meta.timestamp,
         ).getTime();
 
-        // Update metrics
-        setMetrics({
-          totalDevices: m.total_devices,
-          activeDevices: m.active_devices,
+        setMetrics((prevMetrics) => ({
+          ...prevMetrics,
           dataSent: m.data_sent,
           dataReceived: m.data_received,
           broadcastPackets: m.total_broadcast_packets,
           unicastPackets: m.total_unicast_packets,
           arpRequests: m.arp_requests,
           arpReplies: m.arp_replies,
-        });
+        }));
 
-        if (data.dashboard_stats?.devices) {
-          const incomingDevices = data.dashboard_stats.devices.map(
+        if (data.topology.devices) {
+          const incomingDevices = data.topology.devices.map(
             (d: any) => ({
               id: d.id.toString(),
               name: d.name || "Unknown",
@@ -144,28 +145,14 @@ export const useDashboardData = () => {
               device_id: d.device_id || "-",
               vendor: d.vendor || "-",
               type: d.type || "unknown",
+              os: d.os || "Unknown",
               status: d.status,
               lastSeen: new Date().toISOString(),
             }),
           );
-
-          setDevices((prev) => {
-            const updated = [...prev];
-
-            incomingDevices.forEach((device) => {
-              const exists = updated.some((d) => d.id === device.id);
-
-              if (!exists) {
-                updated.unshift(device); // add new device at top
-              }
-            });
-
-            return updated;
-          });
+          setDevices(incomingDevices);
         }
 
-
-        // ARP rate calculation
         if (prevArpRef.current) {
           const timeDiffMs =
             new Date().getTime() - new Date(m.measure_time).getTime();
@@ -179,7 +166,6 @@ export const useDashboardData = () => {
           timestamp: metricTime,
         };
 
-        // Add metric event to feed
         const metricEvent: Event = {
           id: data.event.meta.sequence.toString(),
           type: "metric",
@@ -190,13 +176,12 @@ export const useDashboardData = () => {
         };
         setEvents((prev) => [metricEvent, ...prev]);
       }
-      // Update dashboard stats from new backend format
-      if (data.dashboard_stats) {
+
+      if (data.topology.devices) {
         setDashboardStats({
-          totalDevices: data.dashboard_stats.total_devices,
-          activeDevices: data.dashboard_stats.active_devices,
-          // TODO: FIX THE database data gathering issue
-          idleDevices: data.dashboard_stats.idle_devices,
+          totalDevices: data.topology.devices.length,
+          activeDevices: data.topology.devices.filter((d: any) => d.status === "active").length,
+          idleDevices: data.topology.devices.filter((d: any) => d.status === "idle").length,
           newDevicesToday: data.dashboard_stats.new_devices_today,
         });
       }

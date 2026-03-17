@@ -23,7 +23,7 @@ export const useTopologyData = (showInactive: boolean) => {
 
   useEffect(() => {
     connectWebSocket((data: any) => {
-
+      console.log("Received topology data:", data);
       // Make sure topology exists
       if (!data.topology?.devices) return;
 
