@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowUpDown, Radio, Wifi, GitMerge, GitFork, Globe, Server, Mail, Shield, Activity } from 'lucide-react';
+import { ArrowUpDown, Radio, Wifi, GitMerge, GitFork, Globe, Server, Mail, Shield, Activity, Network, FileText, Lock } from 'lucide-react';
 import React, { useState } from 'react';
 
 interface PacketDetails {
@@ -17,20 +17,25 @@ interface PacketTypeTableProps {
   totalPackets: number;
   currentPacketsPerSecond: number;
   metrics?: {
-    ip_packets?: number;
-    tcp_packets?: number;
-    udp_packets?: number;
-    icmp_packets?: number;
-    dns_queries?: number;
-    dhcp_packets?: number;
-    http_requests?: number;
-    tls_handshakes?: number;
-    arp_requests?: number;
+    total_broadcast_packets: number;
+    total_unicast_packets: number;
+    arp_requests: number;
+    arp_replies: number;
+    ip_packets: number;
+    tcp_packets: number;
+    udp_packets: number;
+    icmp_packets: number;
+    dns_queries: number;
+    dhcp_packets: number;
+    http_requests: number;
+    tls_handshakes: number;
+    total_packets: number;
   };
 }
 
 // Helper function to format numbers
 const formatNumber = (num: number): string => {
+  if (typeof num !== 'number' || isNaN(num)) return '0';
   if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
   if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
   return num.toString();
@@ -38,6 +43,7 @@ const formatNumber = (num: number): string => {
 
 // Helper function to format packets per second
 const formatRate = (rate: number): string => {
+  if (typeof rate !== 'number' || isNaN(rate)) return '0.0';
   if (rate >= 1000) return (rate / 1000).toFixed(1) + 'K';
   return rate.toFixed(1);
 };
@@ -53,10 +59,10 @@ const getPacketTypeIcon = (packetType: string, className?: string) => {
     'TCP Packets': <Server className={className} />,
     'UDP Packets': <Activity className={className} />,
     'ICMP Packets': <Shield className={className} />,
-    'DNS Queries': <Globe className={className} />,
+    'DNS Queries': <Network className={className} />,
     'DHCP Packets': <Mail className={className} />,
-    'HTTP Requests': <Globe className={className} />,
-    'TLS Handshakes': <Shield className={className} />
+    'HTTP Requests': <FileText className={className} />,
+    'TLS Handshakes': <Lock className={className} />
   };
   return icons[packetType] || <Activity className={className} />;
 };
@@ -112,52 +118,170 @@ const getTrendIndicator = (trend?: 'up' | 'down' | 'stable') => {
 };
 
 const PacketTypeTable: React.FC<PacketTypeTableProps> = ({ 
-  packetDetails, 
+  packetDetails: initialPacketDetails, 
   totalPackets,
   currentPacketsPerSecond,
   metrics 
 }) => {
   const [sortField, setSortField] = useState<'totalPackets' | 'packetsPerSecond' | 'percentage'>('totalPackets');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showAllTypes, setShowAllTypes] = useState(true);
 
-  // Create advanced packet details from metrics
-  const advancedPacketDetails: PacketDetails[] = [];
-  
-  if (metrics) {
-    // Only add items if they have values > 0
-    const advancedTypes = [
-      { type: 'TCP Packets', value: metrics.tcp_packets },
-      { type: 'UDP Packets', value: metrics.udp_packets },
-      { type: 'ICMP Packets', value: metrics.icmp_packets },
-      { type: 'DNS Queries', value: metrics.dns_queries },
-      { type: 'DHCP Packets', value: metrics.dhcp_packets },
-      { type: 'HTTP Requests', value: metrics.http_requests },
-      { type: 'TLS Handshakes', value: metrics.tls_handshakes }
-    ];
+  // Calculate packets per second (assuming the data is for a 10-second interval)
+  const calculatePacketsPerSecond = (packetCount: number = 0): number => {
+    return packetCount / 10;
+  };
 
-    advancedTypes.forEach(({ type, value }) => {
-      if (value && value > 0) {
-        advancedPacketDetails.push({
-          packetType: type,
-          totalPackets: value,
-          packetsPerSecond: value / 10, // Calculate rate
-          percentage: totalPackets > 0 ? Number(((value / totalPackets) * 100).toFixed(1)) : 0,
-        });
-      }
-    });
-  }
+  // Safe access to metrics with default values
+  const safeMetrics = {
+    total_broadcast_packets: metrics?.total_broadcast_packets ?? 0,
+    total_unicast_packets: metrics?.total_unicast_packets ?? 0,
+    arp_requests: metrics?.arp_requests ?? 0,
+    arp_replies: metrics?.arp_replies ?? 0,
+    ip_packets: metrics?.ip_packets ?? 0,
+    tcp_packets: metrics?.tcp_packets ?? 0,
+    udp_packets: metrics?.udp_packets ?? 0,
+    icmp_packets: metrics?.icmp_packets ?? 0,
+    dns_queries: metrics?.dns_queries ?? 0,
+    dhcp_packets: metrics?.dhcp_packets ?? 0,
+    http_requests: metrics?.http_requests ?? 0,
+    tls_handshakes: metrics?.tls_handshakes ?? 0,
+    total_packets: metrics?.total_packets ?? totalPackets,
+  };
 
-  // Combine basic and advanced packet details based on showAdvanced state
-  const allPacketDetails = showAdvanced 
-    ? [...packetDetails, ...advancedPacketDetails]
-    : packetDetails;
+  // Helper function to get packet count from either metrics or initialPacketDetails
+  const getPacketCount = (packetType: string): number => {
+    // First check in initialPacketDetails
+    const fromDetails = initialPacketDetails?.find(d => d.packetType === packetType)?.totalPackets;
+    if (fromDetails !== undefined && fromDetails > 0) {
+      return fromDetails;
+    }
+    
+    // Then check in metrics based on packet type
+    switch (packetType) {
+      case 'Broadcast':
+        return safeMetrics.total_broadcast_packets;
+      case 'Unicast':
+        return safeMetrics.total_unicast_packets;
+      case 'ARP Requests':
+        return safeMetrics.arp_requests;
+      case 'ARP Replies':
+        return safeMetrics.arp_replies;
+      case 'IP Packets':
+        return safeMetrics.ip_packets;
+      case 'TCP Packets':
+        return safeMetrics.tcp_packets;
+      case 'UDP Packets':
+        return safeMetrics.udp_packets;
+      case 'ICMP Packets':
+        return safeMetrics.icmp_packets;
+      case 'DNS Queries':
+        return safeMetrics.dns_queries;
+      case 'DHCP Packets':
+        return safeMetrics.dhcp_packets;
+      case 'HTTP Requests':
+        return safeMetrics.http_requests;
+      case 'TLS Handshakes':
+        return safeMetrics.tls_handshakes;
+      default:
+        return 0;
+    }
+  };
 
+  // Create complete packet details from metrics and initialPacketDetails
+  const allPacketTypes: PacketDetails[] = [
+    // Broadcast
+    {
+      packetType: 'Broadcast',
+      totalPackets: getPacketCount('Broadcast'),
+      packetsPerSecond: calculatePacketsPerSecond(getPacketCount('Broadcast')),
+      percentage: totalPackets > 0 ? Number(((getPacketCount('Broadcast') / totalPackets) * 100).toFixed(1)) : 0,
+    },
+    // Unicast
+    {
+      packetType: 'Unicast',
+      totalPackets: getPacketCount('Unicast'),
+      packetsPerSecond: calculatePacketsPerSecond(getPacketCount('Unicast')),
+      percentage: totalPackets > 0 ? Number(((getPacketCount('Unicast') / totalPackets) * 100).toFixed(1)) : 0,
+    },
+    // ARP Requests
+    {
+      packetType: 'ARP Requests',
+      totalPackets: getPacketCount('ARP Requests'),
+      packetsPerSecond: calculatePacketsPerSecond(getPacketCount('ARP Requests')),
+      percentage: totalPackets > 0 ? Number(((getPacketCount('ARP Requests') / totalPackets) * 100).toFixed(1)) : 0,
+    },
+    // ARP Replies
+    {
+      packetType: 'ARP Replies',
+      totalPackets: getPacketCount('ARP Replies'),
+      packetsPerSecond: calculatePacketsPerSecond(getPacketCount('ARP Replies')),
+      percentage: totalPackets > 0 ? Number(((getPacketCount('ARP Replies') / totalPackets) * 100).toFixed(1)) : 0,
+    },
+    // IP Packets
+    {
+      packetType: 'IP Packets',
+      totalPackets: getPacketCount('IP Packets'),
+      packetsPerSecond: calculatePacketsPerSecond(getPacketCount('IP Packets')),
+      percentage: totalPackets > 0 ? Number(((getPacketCount('IP Packets') / totalPackets) * 100).toFixed(1)) : 0,
+    },
+    // TCP Packets
+    {
+      packetType: 'TCP Packets',
+      totalPackets: getPacketCount('TCP Packets'),
+      packetsPerSecond: calculatePacketsPerSecond(getPacketCount('TCP Packets')),
+      percentage: totalPackets > 0 ? Number(((getPacketCount('TCP Packets') / totalPackets) * 100).toFixed(1)) : 0,
+    },
+    // UDP Packets
+    {
+      packetType: 'UDP Packets',
+      totalPackets: getPacketCount('UDP Packets'),
+      packetsPerSecond: calculatePacketsPerSecond(getPacketCount('UDP Packets')),
+      percentage: totalPackets > 0 ? Number(((getPacketCount('UDP Packets') / totalPackets) * 100).toFixed(1)) : 0,
+    },
+    // ICMP Packets
+    {
+      packetType: 'ICMP Packets',
+      totalPackets: getPacketCount('ICMP Packets'),
+      packetsPerSecond: calculatePacketsPerSecond(getPacketCount('ICMP Packets')),
+      percentage: totalPackets > 0 ? Number(((getPacketCount('ICMP Packets') / totalPackets) * 100).toFixed(1)) : 0,
+    },
+    // DNS Queries
+    {
+      packetType: 'DNS Queries',
+      totalPackets: getPacketCount('DNS Queries'),
+      packetsPerSecond: calculatePacketsPerSecond(getPacketCount('DNS Queries')),
+      percentage: totalPackets > 0 ? Number(((getPacketCount('DNS Queries') / totalPackets) * 100).toFixed(1)) : 0,
+    },
+    // DHCP Packets
+    {
+      packetType: 'DHCP Packets',
+      totalPackets: getPacketCount('DHCP Packets'),
+      packetsPerSecond: calculatePacketsPerSecond(getPacketCount('DHCP Packets')),
+      percentage: totalPackets > 0 ? Number(((getPacketCount('DHCP Packets') / totalPackets) * 100).toFixed(1)) : 0,
+    },
+    // HTTP Requests
+    {
+      packetType: 'HTTP Requests',
+      totalPackets: getPacketCount('HTTP Requests'),
+      packetsPerSecond: calculatePacketsPerSecond(getPacketCount('HTTP Requests')),
+      percentage: totalPackets > 0 ? Number(((getPacketCount('HTTP Requests') / totalPackets) * 100).toFixed(1)) : 0,
+    },
+    // TLS Handshakes
+    {
+      packetType: 'TLS Handshakes',
+      totalPackets: getPacketCount('TLS Handshakes'),
+      packetsPerSecond: calculatePacketsPerSecond(getPacketCount('TLS Handshakes')),
+      percentage: totalPackets > 0 ? Number(((getPacketCount('TLS Handshakes') / totalPackets) * 100).toFixed(1)) : 0,
+    }
+  ];
 
-    console.log('Metrics:', metrics);
-console.log('Advanced Packet Details:', advancedPacketDetails);
+  // Remove duplicates and filter out zero values if desired
+  const uniquePacketDetails = Array.from(
+    new Map(allPacketTypes.map(item => [item.packetType, item])).values()
+  ).filter(detail => showAllTypes || detail.totalPackets > 0);
 
-  const sortedDetails = [...allPacketDetails].sort((a, b) => {
+  const sortedDetails = [...uniquePacketDetails].sort((a, b) => {
     const multiplier = sortDirection === 'asc' ? 1 : -1;
     
     if (sortField === 'totalPackets') {
@@ -181,7 +305,42 @@ console.log('Advanced Packet Details:', advancedPacketDetails);
     }
   };
 
-  if (!packetDetails.length && !advancedPacketDetails.length) {
+  // Generate dynamic legend items based on packet types that have data
+  const getLegendItems = () => {
+    const legendMap: Record<string, { color: string, label: string }> = {
+      'Broadcast': { color: 'bg-purple-500', label: 'Broadcast' },
+      'Unicast': { color: 'bg-blue-500', label: 'Unicast' },
+      'ARP Requests': { color: 'bg-amber-500', label: 'ARP' },
+      'ARP Replies': { color: 'bg-emerald-500', label: 'ARP Replies' },
+      'IP Packets': { color: 'bg-indigo-500', label: 'IP' },
+      'TCP Packets': { color: 'bg-cyan-500', label: 'TCP' },
+      'UDP Packets': { color: 'bg-sky-500', label: 'UDP' },
+      'ICMP Packets': { color: 'bg-rose-500', label: 'ICMP' },
+      'DNS Queries': { color: 'bg-violet-500', label: 'DNS' },
+      'DHCP Packets': { color: 'bg-orange-500', label: 'DHCP' },
+      'HTTP Requests': { color: 'bg-pink-500', label: 'HTTP' },
+      'TLS Handshakes': { color: 'bg-teal-500', label: 'TLS' }
+    };
+
+    // Get unique packet types that have data
+    const packetTypesWithData = new Set(uniquePacketDetails.map(d => d.packetType));
+    
+    // Return legend items only for packet types that exist in the data
+    return Array.from(packetTypesWithData).map(packetType => {
+      const legend = legendMap[packetType];
+      if (legend) {
+        return (
+          <div key={packetType} className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${legend.color}`}></div>
+            <span className="text-xs text-slate-600">{legend.label}</span>
+          </div>
+        );
+      }
+      return null;
+    }).filter(Boolean);
+  };
+
+  if (!uniquePacketDetails.length) {
     return (
       <Card>
         <CardHeader>
@@ -216,51 +375,76 @@ console.log('Advanced Packet Details:', advancedPacketDetails);
         </div>
       </CardHeader>
       <CardContent>
-        {/* Summary Cards */}
+        {/* Summary Cards - Now using getPacketCount to ensure correct data */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <div className="bg-slate-50 p-3 rounded-lg">
             <p className="text-xs text-slate-500">Broadcast</p>
             <p className="text-lg font-semibold text-slate-900">
-              {formatNumber(packetDetails.find(d => d.packetType === 'Broadcast')?.totalPackets || 0)}
+              {formatNumber(getPacketCount('Broadcast'))}
             </p>
           </div>
           <div className="bg-slate-50 p-3 rounded-lg">
             <p className="text-xs text-slate-500">Unicast</p>
             <p className="text-lg font-semibold text-slate-900">
-              {formatNumber(packetDetails.find(d => d.packetType === 'Unicast')?.totalPackets || 0)}
+              {formatNumber(getPacketCount('Unicast'))}
             </p>
           </div>
           <div className="bg-slate-50 p-3 rounded-lg">
             <p className="text-xs text-slate-500">ARP Total</p>
             <p className="text-lg font-semibold text-slate-900">
-              {formatNumber((packetDetails.find(d => d.packetType === 'ARP Requests')?.totalPackets || 0) + 
-                           (packetDetails.find(d => d.packetType === 'ARP Replies')?.totalPackets || 0))}
+              {formatNumber(getPacketCount('ARP Requests') + getPacketCount('ARP Replies'))}
             </p>
           </div>
           <div className="bg-slate-50 p-3 rounded-lg">
             <p className="text-xs text-slate-500">IP Packets</p>
             <p className="text-lg font-semibold text-slate-900">
-              {formatNumber(metrics?.ip_packets || 0)}
+              {formatNumber(getPacketCount('IP Packets'))}
             </p>
           </div>
         </div>
 
-        {/* Toggle for advanced view */}
-        {advancedPacketDetails.length > 0 && (
-          <div className="mb-4">
+        {/* Additional summary row for more packet types if needed */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div className="bg-slate-50 p-3 rounded-lg">
+            <p className="text-xs text-slate-500">TCP Packets</p>
+            <p className="text-lg font-semibold text-slate-900">
+              {formatNumber(getPacketCount('TCP Packets'))}
+            </p>
+          </div>
+          <div className="bg-slate-50 p-3 rounded-lg">
+            <p className="text-xs text-slate-500">UDP Packets</p>
+            <p className="text-lg font-semibold text-slate-900">
+              {formatNumber(getPacketCount('UDP Packets'))}
+            </p>
+          </div>
+          <div className="bg-slate-50 p-3 rounded-lg">
+            <p className="text-xs text-slate-500">ICMP Packets</p>
+            <p className="text-lg font-semibold text-slate-900">
+              {formatNumber(getPacketCount('ICMP Packets'))}
+            </p>
+          </div>
+          <div className="bg-slate-50 p-3 rounded-lg">
+            <p className="text-xs text-slate-500">DNS Queries</p>
+            <p className="text-lg font-semibold text-slate-900">
+              {formatNumber(getPacketCount('DNS Queries'))}
+            </p>
+          </div>
+        </div>
+
+        {/* Toggle for showing zero values */}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowAdvanced(!showAdvanced)}
+              onClick={() => setShowAllTypes(!showAllTypes)}
               className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
             >
-              {showAdvanced ? '▼ Hide advanced packet types' : '▶ Show advanced packet types'}
+              {showAllTypes ? '▼ Hide zero-value packet types' : '▶ Show all packet types'}
             </button>
-            {!showAdvanced && (
-              <span className="ml-2 text-xs text-slate-500">
-                ({advancedPacketDetails.length} additional types available)
-              </span>
-            )}
+            <span className="text-xs text-slate-500">
+              ({uniquePacketDetails.length} types displayed)
+            </span>
           </div>
-        )}
+        </div>
 
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -303,8 +487,10 @@ console.log('Advanced Packet Details:', advancedPacketDetails);
                 
                 return (
                   <tr 
-                    key={index} 
-                    className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
+                    key={`${detail.packetType}-${index}`} 
+                    className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${
+                      detail.totalPackets === 0 ? 'opacity-50' : ''
+                    }`}
                   >
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
@@ -377,59 +563,20 @@ console.log('Advanced Packet Details:', advancedPacketDetails);
           </table>
         </div>
 
-        {/* Legend */}
+        {/* Dynamic Legend - Only shows packet types that have data */}
         <div className="mt-4 flex flex-wrap gap-4 pt-4 border-t border-slate-100">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-            <span className="text-xs text-slate-600">Broadcast</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-            <span className="text-xs text-slate-600">Unicast</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-            <span className="text-xs text-slate-600">ARP</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
-            <span className="text-xs text-slate-600">IP</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
-            <span className="text-xs text-slate-600">TCP</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-sky-500"></div>
-            <span className="text-xs text-slate-600">UDP</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-violet-500"></div>
-            <span className="text-xs text-slate-600">DNS</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-            <span className="text-xs text-slate-600">DHCP</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-pink-500"></div>
-            <span className="text-xs text-slate-600">HTTP</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-teal-500"></div>
-            <span className="text-xs text-slate-600">TLS</span>
-          </div>
+          {getLegendItems()}
         </div>
 
         {/* Insights based on actual data */}
         <div className="mt-4 p-3 bg-slate-50 rounded-lg">
           <p className="text-xs text-slate-600">
             <span className="font-medium">Network Analysis:</span>{' '}
-            {metrics?.dhcp_packets && metrics.dhcp_packets > 100 
+            {getPacketCount('DHCP Packets') > 100 
               ? 'High DHCP traffic detected. Multiple devices requesting IP addresses.'
-              : metrics?.tcp_packets && metrics.udp_packets && metrics.tcp_packets > metrics.udp_packets
+              : getPacketCount('TCP Packets') > getPacketCount('UDP Packets')
               ? 'TCP traffic dominates. Connection-oriented communication prevalent.'
-              : metrics?.udp_packets && metrics.tcp_packets && metrics.udp_packets > metrics.tcp_packets
+              : getPacketCount('UDP Packets') > getPacketCount('TCP Packets')
               ? 'UDP traffic dominates. Streaming or real-time applications active.'
               : 'Network traffic pattern normal.'}
           </p>
