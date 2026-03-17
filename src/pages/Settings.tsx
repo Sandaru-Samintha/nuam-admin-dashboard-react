@@ -1,13 +1,32 @@
-import { useState } from "react";
-import { useIpAddressManagement } from "@/hooks/useIpAddressManagement"
+import { useState, useEffect, useRef } from "react";
+import { useIpAddressManagement } from "@/hooks/useIpAddressManagement";
 
 export default function SettingsPage() {
   const [subnet, setSubnet] = useState("");
   const [newDeviceIP, setNewDeviceIP] = useState("");
   const [message, setMessage] = useState("");
-  const {
-      updateNetworkSettings,
-    } = useIpAddressManagement();
+
+  const { networkStats, updateNetworkSettings, extractInputData } =
+    useIpAddressManagement();
+
+  // Use a ref to track if we already loaded the previous values
+  const isInitialLoad = useRef(true);
+
+  useEffect(() => {
+    // Only load previous values if networkStats has real values
+    if (
+      isInitialLoad.current &&
+      networkStats.base_ip &&
+      networkStats.subnet_mask &&
+      networkStats.base_ip !== "-" &&
+      networkStats.subnet_mask !== "-"
+    ) {
+      const { ip, subnet } = extractInputData(networkStats);
+      setNewDeviceIP(ip);
+      setSubnet(subnet);
+      isInitialLoad.current = false; // ensure we only set once
+    }
+  }, [networkStats, extractInputData]);
 
   const handleUpdateBoth = () => {
     const mask = subnet.trim();
@@ -17,12 +36,10 @@ export default function SettingsPage() {
     if (mask) {
       const maskRegex =
         /^(255|254|252|248|240|224|192|128|0)\.(255|254|252|248|240|224|192|128|0)\.(255|254|252|248|240|224|192|128|0)\.(0|128|192|224|240|248|252|254|255)$/;
-
       const binary = mask
         .split(".")
         .map((n) => parseInt(n).toString(2).padStart(8, "0"))
         .join("");
-
       if (!maskRegex.test(mask) || !/^1*0*$/.test(binary)) {
         return setMessage("Invalid subnet mask ❌");
       }
@@ -32,7 +49,6 @@ export default function SettingsPage() {
     if (ip) {
       const ipv4Regex =
         /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
-
       if (!ipv4Regex.test(ip)) {
         return setMessage("Invalid IP address ❌");
       }
@@ -43,6 +59,7 @@ export default function SettingsPage() {
     }
 
     updateNetworkSettings(mask || undefined, ip || undefined);
+    setMessage("Settings updated successfully ✅");
 
     setSubnet("");
     setNewDeviceIP("");
@@ -51,8 +68,6 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-gray-100 flex justify-center items-start py-10">
       <div className="w-full max-w-2xl bg-white shadow-lg rounded-2xl p-6">
-        
-        {/* Header */}
         <h2 className="text-2xl font-semibold text-gray-800 mb-4">
           Network Settings
         </h2>
@@ -60,7 +75,6 @@ export default function SettingsPage() {
           Configure subnet mask and device IP address
         </p>
 
-        {/* Form */}
         <div className="flex flex-col gap-4">
           <input
             type="text"
@@ -86,7 +100,6 @@ export default function SettingsPage() {
           </button>
         </div>
 
-        {/* Message */}
         {message && (
           <div className="mt-4 text-sm text-center font-medium text-gray-700">
             {message}

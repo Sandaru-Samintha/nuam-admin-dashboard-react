@@ -67,7 +67,7 @@ function MainLayout() {
                         </div>
                     </div>
                     
-                    <div className="flex items-center gap-4">
+                    {/* <div className="flex items-center gap-4">
                         <button className="p-2 hover:bg-slate-100 rounded relative">
                             <Bell className="h-5 w-5 text-slate-600" />
                             <span className="absolute top-1 right-1 h-2 w-2 bg-blue-600 rounded-full"></span>
@@ -75,7 +75,7 @@ function MainLayout() {
                         <button className="p-2 hover:bg-slate-100 rounded">
                             <User className="h-5 w-5 text-slate-600" />
                         </button>
-                    </div>
+                    </div> */}
                 </header>
 
                 <main className="flex-1 overflow-y-auto p-6 space-y-6">

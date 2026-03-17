@@ -424,7 +424,6 @@ export default function IPAddressManagement() {
     networkStats,
     devices: wsDevices,
     alerts: wsAlerts,
-    updateNetworkSettings,
   } = useIpAddressManagement();
 
   const [subnet, setSubnet] = useState("");
@@ -455,39 +454,39 @@ export default function IPAddressManagement() {
     poolRange: "-",
   };
 
-  const handleUpdateBoth = () => {
-    const mask = subnet.trim();
-    const ip = newDeviceIP.trim();
+  // const handleUpdateBoth = () => {
+  //   const mask = subnet.trim();
+  //   const ip = newDeviceIP.trim();
 
-    // Subnet validation
-    if (mask) {
-      const maskRegex =
-        /^(255|254|252|248|240|224|192|128|0)\.(255|254|252|248|240|224|192|128|0)\.(255|254|252|248|240|224|192|128|0)\.(0|128|192|224|240|248|252|254|255)$/;
-      const binary = mask
-        .split(".")
-        .map((n) => parseInt(n).toString(2).padStart(8, "0"))
-        .join("");
-      if (!maskRegex.test(mask) || !/^1*0*$/.test(binary)) {
-        return alert("Invalid subnet mask");
-      }
-    }
+  //   // Subnet validation
+  //   if (mask) {
+  //     const maskRegex =
+  //       /^(255|254|252|248|240|224|192|128|0)\.(255|254|252|248|240|224|192|128|0)\.(255|254|252|248|240|224|192|128|0)\.(0|128|192|224|240|248|252|254|255)$/;
+  //     const binary = mask
+  //       .split(".")
+  //       .map((n) => parseInt(n).toString(2).padStart(8, "0"))
+  //       .join("");
+  //     if (!maskRegex.test(mask) || !/^1*0*$/.test(binary)) {
+  //       return alert("Invalid subnet mask");
+  //     }
+  //   }
 
-    // IP validation
-    if (ip) {
-      const ipv4Regex =
-        /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
-      if (!ipv4Regex.test(ip)) return alert("Invalid IP address");
-    }
+  //   // IP validation
+  //   if (ip) {
+  //     const ipv4Regex =
+  //       /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+  //     if (!ipv4Regex.test(ip)) return alert("Invalid IP address");
+  //   }
 
-    if (!mask && !ip) return alert("Enter subnet mask or device IP");
+  //   if (!mask && !ip) return alert("Enter subnet mask or device IP");
 
-    // Send both values together
-    updateNetworkSettings(mask || undefined, ip || undefined);
+  //   // Send both values together
+  //   updateNetworkSettings(mask || undefined, ip || undefined);
 
-    // Clear inputs
-    setSubnet("");
-    setNewDeviceIP("");
-  };
+  //   // Clear inputs
+  //   setSubnet("");
+  //   setNewDeviceIP("");
+  // };
 
   useEffect(() => {
     if (wsDevices) {
@@ -599,7 +598,7 @@ export default function IPAddressManagement() {
               Add Reservation
             </button>
           </div> */}
-          <div>
+          {/* <div>
             <div className="mb-6 flex items-center gap-2">
               <input
                 type="text"
@@ -624,7 +623,7 @@ export default function IPAddressManagement() {
                 Update
               </button>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
 

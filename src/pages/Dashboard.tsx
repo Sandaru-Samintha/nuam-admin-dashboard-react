@@ -89,12 +89,12 @@ const Dashboard: React.FC = () => {
           icon={<AlertCircle className="h-4 w-4" />}
           trend={`${idleDevices} devices idle`}
         />
-        <MetricCard
+        {/* <MetricCard
           title="Network Status"
           value="Healthy"
           description="All systems operational"
           icon={<CheckCircle2 className="h-4 w-4" />}
-        />
+        /> */}
       </div>
 
       {/* Secondary Metric Cards */}

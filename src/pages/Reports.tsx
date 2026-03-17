@@ -322,10 +322,10 @@ const Reports: React.FC = () => {
                   <p className="text-xs text-slate-400 uppercase font-bold mb-1">Vendor</p>
                   <p className="text-slate-900 font-medium">{selectedDevice.device_info.vendor || 'N/A'}</p>
                 </div>
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                {/* <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                   <p className="text-xs text-slate-400 uppercase font-bold mb-1">Type</p>
                   <p className="text-slate-900 font-medium">{selectedDevice.device_info.device_type || 'N/A'}</p>
-                </div>
+                </div> */}
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                   <p className="text-xs text-slate-400 uppercase font-bold mb-1">OS</p>
                   <p className="text-slate-900 font-medium">{selectedDevice.device_info.os || 'N/A'}</p>

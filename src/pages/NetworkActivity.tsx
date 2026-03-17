@@ -86,10 +86,10 @@ const NetworkActivityPage: React.FC = () => {
   }));
 
   // Handle refresh button click
-  const handleRefresh = () => {
-    refreshData();
-    setLastUpdated(new Date().toLocaleTimeString());
-  };
+  // const handleRefresh = () => {
+  //   refreshData();
+  //   setLastUpdated(new Date().toLocaleTimeString());
+  // };
 
   // Handle time range change
   const handleTimeRangeChange = (value: string) => {
@@ -116,7 +116,7 @@ const NetworkActivityPage: React.FC = () => {
           <p className="text-sm text-slate-500 mt-1">Real-time and historical LAN traffic insights</p>
         </div>
         
-        <div className="flex items-center gap-3">
+        {/* <div className="flex items-center gap-3">
           <Select value={timeRange} onValueChange={handleTimeRangeChange}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Time range" />
@@ -132,7 +132,7 @@ const NetworkActivityPage: React.FC = () => {
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-        </div>
+        </div> */}
       </div>
 
       <Separator />

@@ -1,13 +1,20 @@
 import { useState, useEffect, useRef } from "react";
 
-export interface NetworkStats {
-  totalIPs: number;
-  inUse: number;
+interface NetworkStats {
   available: number;
+  base_ip: string;
   conflicts: number;
-  unauthorized: number;
+  inUse: number;
   poolRange: string;
+  subnet_mask: string;
+  totalIPs: number;
+  unauthorized: number;
 }
+interface InputData {
+  ip: string;
+  subnet: string;
+}
+
 
 export interface IPAlerts {
   id: string;
@@ -43,6 +50,8 @@ export function useIpAddressManagement() {
     conflicts: 0,
     unauthorized: 0,
     poolRange: "-",
+    base_ip: "-",
+    subnet_mask: "-",
   });
   const [devices, setDevices] = useState<IPDevice[]>([]);
   const [alerts, setAlerts] = useState<IPAlerts[]>([]);
@@ -112,5 +121,12 @@ export function useIpAddressManagement() {
     wsRef.current.send(JSON.stringify(payload));
   };
 
-  return { networkStats, devices, alerts, updateNetworkSettings };
+  function extractInputData(stats: NetworkStats): InputData {
+  return {
+    ip: stats.base_ip || "",
+    subnet: stats.subnet_mask || ""
+  };
+}
+
+  return { networkStats, devices, alerts, updateNetworkSettings,extractInputData };
 }

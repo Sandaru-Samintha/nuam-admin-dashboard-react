@@ -539,7 +539,7 @@ const NetworkTopologyPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-4">
+        {/* <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Switch
               id="show-inactive"
@@ -555,7 +555,7 @@ const NetworkTopologyPage: React.FC = () => {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-        </div>
+        </div> */}
       </div>
 
       <Separator />
